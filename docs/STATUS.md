@@ -1,36 +1,40 @@
 # Project Status
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 ## Current position
 
 - **Phase:** 0 — Think before coding
-- **Block:** 0.1 — Product definition
-- **State:** Ready to begin
+- **Block:** 0.4 — Project setup
+- **State:** In progress
 - **Application code:** None
-- **Repository state:** Planning documents created; Git has not yet been initialized
+- **Repository state:** Git initialized; product definition, V0.1 architecture, and core concepts documented
 
 ## Next action
 
-Open [PHASE_0_WORKBOOK.md](PHASE_0_WORKBOOK.md) and draft one-to-three-sentence answers to the five Block 0.1 product-definition questions. Do not research competitors first.
-
-After drafting, ask an AI collaborator to challenge the definition's assumptions and boundaries without rewriting it.
+Decide the supported Python version. Before selecting the environment and dependency-management approach, state what that tooling must accomplish and what costs or constraints matter for this learning project.
 
 ## Current constraints
 
-- Do not implement application code before completing and reviewing Blocks 0.1–0.3.
+- Do not begin Phase 1 application code before completing the Block 0.4 setup decisions and checks.
 - Do not choose an agent framework, model provider, retrieval system, or final finding schema yet.
 - Keep the evidence-validation question unresolved until Phase 4 so it remains a genuine design exercise.
 
 ## Open questions
 
-- Who exactly is the V0.1 user?
-- What single problem should V0.1 solve well?
-- What repository inputs and question formats are accepted?
-- What observable output counts as success?
-- Which attractive capabilities are explicitly excluded?
+- Which Python version should the project support, and why?
+- What should manage the virtual environment and dependencies?
+- What is the smallest justified package layout?
+- Which formatting, linting, typing, and testing tools meet the project's learning goals without hiding mechanics?
 
 ## Session log
+
+### 2026-09-23 — Product and architecture definition
+
+- Completed the V0.1 product definition for one evidence-supported architectural question about a local Python repository.
+- Drew and pressure-tested the V0.1 architecture, including loop ownership, run state, failure handling, and read-only repository boundaries.
+- Defined Agent, Tool, Model, and Harness responsibilities and traced a file-reading request across their boundaries.
+- Advanced to Block 0.4; no application code or tests were added.
 
 ### 2026-09-22 — Planning workspace
 
@@ -43,4 +47,4 @@ After drafting, ask an AI collaborator to challenge the definition's assumptions
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Continue from the documented next action. Follow the learning workflow: challenge my thinking before offering solutions, and update project status when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Continue Block 0.4 from the documented next action. Follow the learning workflow: ask me to state the tooling contract and constraints before recommending setup choices, and update project status when we finish.
