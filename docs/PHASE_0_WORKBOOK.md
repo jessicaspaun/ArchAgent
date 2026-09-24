@@ -168,13 +168,76 @@ _Your answer:_ To read a file, the agent takes in the repository path and archit
 Only begin this after the earlier Phase 0 exercises have been reviewed.
 
 - [x] Initialize the Git repository
-- [ ] Decide the supported Python version
-- [ ] Choose an environment and dependency-management approach
-- [ ] Add the smallest justified package structure
-- [ ] Configure formatting and linting
-- [ ] Configure type checking
-- [ ] Configure pytest
+- [x] Decide the supported Python version — Python 3.12+. This supports more
+  developer environments while accepting the cost of avoiding newer-only
+  features and eventually testing Python 3.12, 3.13, and 3.14.
+- [x] Choose an environment and dependency-management approach — use `uv` to
+  manage the project environment, dependency groups, and committed lockfile.
+- [x] Add the smallest justified package structure — use a `src/archagent`
+  package so development imports exercise the installed package boundary.
+- [x] Configure formatting and linting — Black 26.5.1 formats code and Ruff
+  0.16.8 checks explicit lint rules.
+- [x] Configure type checking — mypy 2.3.1 checks `src` in strict mode against
+  the Python 3.12 compatibility floor.
+- [x] Configure pytest — discover tests under `tests`, reject invalid
+  configuration and unknown markers, and report non-passing outcomes.
 - [ ] Confirm the checks run from a clean checkout
 - [x] Create the ADR directory and template
 
 Before choosing tools, write down what each tool needs to accomplish and what cost or constraint it introduces.
+
+### Environment and dependency-management contract
+
+- Setup may assume that Python 3.12 or newer and `uv` are already installed.
+- From a clean checkout, one documented command creates or uses an isolated
+  project environment without modifying global Python packages.
+- Setup verifies the supported Python version and installs the exact locked
+  runtime and development dependencies.
+- Runtime and development dependencies are declared separately, while the
+  normal contributor setup installs both.
+- After setup, the project's checks are ready to run.
+
+Accepted costs: contributors must install `uv`, and the project adopts the
+tool-specific `uv.lock` format. From a clean checkout, `uv sync --locked` is
+the documented setup command.
+
+### Formatting and linting contract
+
+- Black owns automatic formatting and provides a non-modifying check mode.
+- Ruff owns linting only, beginning with explicit rules for core Python errors,
+  unused imports, import ordering, and common bug patterns.
+- Both tools target the Python 3.12 compatibility floor and use the same line
+  length.
+- Both tools are development dependencies and are not imported by ArchAgent.
+- Verification will introduce a temporary misformatted file with an unused
+  import, confirm both checks fail with useful output, apply supported fixes,
+  and confirm both checks pass afterward.
+
+Verification result: Black reported the proposed formatting diff, and Ruff
+reported import-order and unused-import violations in the temporary probe.
+After applying fixes and removing the probe, `black --check src` and
+`ruff check src` both passed.
+
+### Type-checking contract
+
+- All ArchAgent functions have typed parameters and return values.
+- Generic collections specify their contained types, and untyped values cannot
+  silently spread through the application.
+- Checks target Python 3.12, warn about unreachable code, and use strict mode.
+- Suppressions must be narrow and identify the suppressed error rather than
+  disabling missing-import or `Any` checks globally.
+
+Verification result: mypy rejected a temporary probe containing an
+incompatible return type and an untyped function. It passed after both
+contracts were corrected, and it passed again after the probe was removed.
+
+### Pytest contract
+
+- Tests live under `tests` and run against the installed package rather than a
+  manually added `src` import path.
+- Invalid pytest configuration and unknown markers fail loudly.
+- The initial smoke test proves that the installed `archagent` package can be
+  imported; it does not claim that application behavior exists yet.
+
+Verification result: pytest discovered and passed the package-import smoke
+test, and Black, Ruff, and strict mypy also passed across `src` and `tests`.

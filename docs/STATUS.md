@@ -12,7 +12,7 @@ Last updated: 2026-09-23
 
 ## Next action
 
-Decide the supported Python version. Before selecting the environment and dependency-management approach, state what that tooling must accomplish and what costs or constraints matter for this learning project.
+Commit the Block 0.4 setup, then verify a clean checkout in a temporary directory with `uv sync --locked` followed by the formatter, linter, type checker, and pytest checks.
 
 ## Current constraints
 
@@ -22,10 +22,7 @@ Decide the supported Python version. Before selecting the environment and depend
 
 ## Open questions
 
-- Which Python version should the project support, and why?
-- What should manage the virtual environment and dependencies?
-- What is the smallest justified package layout?
-- Which formatting, linting, typing, and testing tools meet the project's learning goals without hiding mechanics?
+- Can the committed project recreate its environment and pass every check from a clean checkout without relying on uncommitted or global project state?
 
 ## Session log
 
@@ -35,6 +32,9 @@ Decide the supported Python version. Before selecting the environment and depend
 - Drew and pressure-tested the V0.1 architecture, including loop ownership, run state, failure handling, and read-only repository boundaries.
 - Defined Agent, Tool, Model, and Harness responsibilities and traced a file-reading request across their boundaries.
 - Advanced to Block 0.4; no application code or tests were added.
+- Selected Python 3.12+ to support multiple developer environments, accepting
+  the obligation to avoid newer-only features and eventually test supported
+  minor versions.
 
 ### 2026-09-22 — Planning workspace
 
