@@ -181,7 +181,8 @@ Only begin this after the earlier Phase 0 exercises have been reviewed.
   the Python 3.12 compatibility floor.
 - [x] Configure pytest — discover tests under `tests`, reject invalid
   configuration and unknown markers, and report non-passing outcomes.
-- [ ] Confirm the checks run from a clean checkout
+- [x] Confirm the checks run from a clean checkout — a temporary clone synced
+  with `uv sync --locked`; Black, Ruff, strict mypy, and pytest all passed.
 - [x] Create the ADR directory and template
 
 Before choosing tools, write down what each tool needs to accomplish and what cost or constraint it introduces.

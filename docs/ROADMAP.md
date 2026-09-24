@@ -15,13 +15,13 @@ The canonical current position and next action live in [STATUS.md](STATUS.md).
 - [x] **0.1 Product definition** — define the user, problem, accepted input, output, and explicit V0.1 exclusions.
 - [x] **0.2 V0.1 architecture** — draw the architecture and defend component boundaries and failure ownership.
 - [x] **0.3 Core concepts** — define agent, tool, model, and harness in ArchAgent's own terms.
-- [~] **0.4 Project setup** — initialize the repository and establish the minimal Python, formatting, linting, typing, testing, and ADR workflow.
+- [x] **0.4 Project setup** — initialize the repository and establish the minimal Python, formatting, linting, typing, testing, and ADR workflow.
 
 Exit condition: the owner can explain what V0.1 is, how its major pieces interact, and why its initial development environment was chosen.
 
 ## Phase 1 — Tool system, without an LLM (~7 hours)
 
-- [ ] **1.1 Tool contract** — decide what tools expose, receive, return, how errors appear, and how discovery and invocation work.
+- [~] **1.1 Tool contract** — decide what tools expose, receive, return, how errors appear, and how discovery and invocation work.
 - [ ] **1.2 File listing** — define behavior and tests, then implement repository file discovery.
 - [ ] **1.3 File reading** — design and implement safe repository file access, including boundaries and failures.
 - [ ] **1.4 Code search** — implement lexical repository search; no semantic or vector search.

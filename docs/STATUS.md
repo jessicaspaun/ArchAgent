@@ -4,27 +4,40 @@ Last updated: 2026-09-23
 
 ## Current position
 
-- **Phase:** 0 — Think before coding
-- **Block:** 0.4 — Project setup
-- **State:** In progress
+- **Phase:** 1 — Tool system, without an LLM
+- **Block:** 1.1 — Tool contract
+- **State:** Ready to begin
 - **Application code:** None
-- **Repository state:** Git initialized; product definition, V0.1 architecture, and core concepts documented
+- **Repository state:** Phase 0 complete; Python project and deterministic quality checks reproduce from a clean checkout
 
 ## Next action
 
-Commit the Block 0.4 setup, then verify a clean checkout in a temporary directory with `uv sync --locked` followed by the formatter, linter, type checker, and pytest checks.
+Before implementing a repository tool, define the common tool contract: identity and description, accepted arguments, success result, controlled errors, repository-boundary enforcement, discovery, and invocation.
 
 ## Current constraints
 
-- Do not begin Phase 1 application code before completing the Block 0.4 setup decisions and checks.
+- Keep Phase 1 free of model calls; tool behavior must be deterministic and testable on its own.
+- Begin with the three V0.1 repository tools only: `list_files`, `read_file`, and `search_code`.
+- Treat repository paths and contents as untrusted input and keep all access read-only and repository-confined.
 - Do not choose an agent framework, model provider, retrieval system, or final finding schema yet.
 - Keep the evidence-validation question unresolved until Phase 4 so it remains a genuine design exercise.
 
 ## Open questions
 
-- Can the committed project recreate its environment and pass every check from a clean checkout without relying on uncommitted or global project state?
+- What information identifies and describes every tool?
+- How are tool arguments and results represented?
+- Which errors are part of the tool contract rather than unexpected exceptions?
+- How will callers discover and invoke tools without a growing conditional chain?
 
 ## Session log
+
+### 2026-09-23 — Phase 0 project setup
+
+- Selected Python 3.12+, `uv`, `uv_build`, and a `src/archagent` package layout.
+- Configured Black for formatting, Ruff for linting, mypy in strict mode, and pytest with a package-import smoke test.
+- Verified deliberate formatting, linting, and typing failures before applying corrections and confirming passing checks.
+- Recreated the project from commit `eef0098` in a temporary clone with `uv sync --locked`; Black, Ruff, mypy, and pytest all passed.
+- Completed Phase 0 and advanced to Phase 1, Block 1.1.
 
 ### 2026-09-23 — Product and architecture definition
 
@@ -47,4 +60,4 @@ Commit the Block 0.4 setup, then verify a clean checkout in a temporary director
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Continue Block 0.4 from the documented next action. Follow the learning workflow: ask me to state the tooling contract and constraints before recommending setup choices, and update project status when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.1 from the documented next action. Follow the learning workflow: ask me to define the common repository-tool contract and its tests before implementation, and update project status when we finish.
