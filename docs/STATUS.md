@@ -1,18 +1,20 @@
 # Project Status
 
-Last updated: 2026-09-23
+Last updated: 2026-09-24
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.1 — Tool contract
-- **State:** Ready to begin
+- **Block:** 1.2 — File listing
+- **State:** Ready to define the `list_files` contract and tests
 - **Application code:** None
 - **Repository state:** Phase 0 complete; Python project and deterministic quality checks reproduce from a clean checkout
 
 ## Next action
 
-Before implementing a repository tool, define the common tool contract: identity and description, accepted arguments, success result, controlled errors, repository-boundary enforcement, discovery, and invocation.
+Before implementing `list_files`, define its observable behavior and the tests
+that demonstrate normal listing, boundaries, invalid inputs, filesystem
+failures, security behavior, and unexpected state.
 
 ## Current constraints
 
@@ -24,12 +26,30 @@ Before implementing a repository tool, define the common tool contract: identity
 
 ## Open questions
 
-- What information identifies and describes every tool?
-- How are tool arguments and results represented?
-- Which errors are part of the tool contract rather than unexpected exceptions?
-- How will callers discover and invoke tools without a growing conditional chain?
+- Does `list_files` list only one directory level or recurse through the target?
+- How are hidden files, ignored directories, symbolic links, and ordering handled?
+- What result fields make listing success concrete and deterministic?
+- Which listing failures receive specific controlled error codes?
 
 ## Session log
+
+### 2026-09-24 — Common repository-tool contract
+
+- Defined an immutable, resolved target-repository boundary and assigned
+  filesystem confinement to the repository-tool layer.
+- Chose immutable argument metadata and distinct success and controlled-failure
+  result types.
+- Divided structural request validation from operation-specific path and
+  filesystem validation.
+- Designed a fixed per-run tool registry with unique names, metadata-only
+  discovery, controlled unknown-tool handling, and harness-owned callables.
+- Separated safe model-facing errors from internal traceback and absolute-path
+  logging.
+- Added the policy that an active ArchAgent source checkout cannot be its own
+  target, while a non-overlapping clone may be reviewed.
+- Documented the contract and its construction, success, failure, boundary,
+  security, and read-only test inventory in `docs/PHASE_1_WORKBOOK.md`.
+- Completed Block 1.1 and advanced to Block 1.2.
 
 ### 2026-09-23 — Phase 0 project setup
 
@@ -60,4 +80,7 @@ Before implementing a repository tool, define the common tool contract: identity
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.1 from the documented next action. Follow the learning workflow: ask me to define the common repository-tool contract and its tests before implementation, and update project status when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.2 from the
+> documented next action. Follow the learning workflow: ask me to define the
+> `list_files` contract and its tests before implementation, and update project
+> status when we finish.
