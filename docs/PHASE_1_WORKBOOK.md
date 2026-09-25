@@ -238,3 +238,158 @@ security properties are correct.
 - **Unexpected defect:** a programming error or unclassified failure that is not
   falsely presented as a known repository condition.
 
+## 1.2 File listing
+
+### Component contract
+
+`list_files` receives a required repository-relative directory path and returns
+only that directory's immediate entries. It does not recurse. The caller must
+make another `list_files` request with a child directory path to explore more
+deeply.
+
+The repository root is represented by `"."`. An omitted or empty path is
+invalid; absolute paths are not accepted. Path resolution is followed by a
+repository-boundary check rather than treated as proof that a path is safe.
+
+The tool accepts these arguments:
+
+```text
+path
+    Type: string
+    Required: yes
+    Meaning: repository-relative directory path
+
+include_hidden
+    Type: boolean
+    Required: no
+    Default: false
+    Meaning: include immediate entries whose names begin with a dot
+```
+
+Request-shape errors, including missing, incorrectly typed, empty, or extra
+arguments, are rejected by the invocation layer according to the common tool
+contract. Their shared external representation will be implemented with the
+tool registry rather than separately inside `list_files`.
+
+### Successful result
+
+`ListFilesSuccess` is immutable and contains:
+
+- the normalized repository-relative path of the listed directory; and
+- an immutable tuple of immediate entries.
+
+Every entry contains its normalized repository-relative path and exactly one
+kind:
+
+```text
+file
+directory
+symlink
+other
+```
+
+`other` represents a special filesystem entry such as a socket or named pipe.
+The listing identifies such an entry without opening or executing it. An empty
+directory succeeds with an empty tuple rather than an empty string or failure.
+
+Entries are returned together in ascending order by normalized
+repository-relative path using Python's case-sensitive string ordering. The
+tool never relies on filesystem iteration order.
+
+### Visibility and ignore behavior
+
+An entry is hidden when its name begins with `.`. Hidden immediate entries are
+omitted by default and included when `include_hidden` is true. An explicitly
+requested hidden directory path may be listed.
+
+V0.1 does not interpret `.gitignore`, nested Git ignore rules, global Git
+exclusions, or Git repository state. A non-hidden entry remains visible even if
+Git ignores it. This keeps listing behavior independent of Git and prevents an
+untrusted ignore file from concealing filesystem entries.
+
+This hidden-entry behavior is a listing filter, not a security boundary. It
+does not prevent another tool from accessing a hidden path that the caller
+already knows.
+
+### Symbolic links
+
+A symlink encountered in a directory is returned with `kind: symlink`. The tool
+does not automatically follow it, recurse through it, or expose its absolute
+target.
+
+If the caller explicitly supplies a symlink as the directory path, the tool
+resolves its target before access. It may list the target only when the final
+directory remains inside the authorized repository. A target outside the
+repository returns `outside_repository`. Because listing is non-recursive, an
+internal directory symlink cannot create an automatic traversal cycle.
+
+### Resource limit
+
+One call examines at most 1,000 immediate directory entries. The limit is fixed
+application configuration and is not controlled by the model. Tests may inject
+a smaller limit to exercise the boundary without constructing a large fixture.
+
+When the tool discovers entry 1,001, it stops and returns
+`directory_too_large` without a partial listing. It does not continue merely to
+calculate the exact directory size. This prevents a partial result from being
+mistaken for a complete view. Pagination is deferred until real use
+demonstrates that it is needed.
+
+### Controlled failures
+
+| Code | Meaning |
+| --- | --- |
+| `directory_not_found` | The requested directory does not exist. |
+| `not_a_directory` | The requested path exists but is not a directory. |
+| `outside_repository` | The resolved directory is outside the authorized repository. |
+| `permission_denied` | The operating system refused permission to list the directory. |
+| `directory_too_large` | The directory exceeds the configured entry limit. |
+
+A directory that disappears during access is translated into the most accurate
+known controlled failure. An unexpected programming defect is not mislabeled as
+one of these filesystem conditions.
+
+### Test plan
+
+Successful behavior:
+
+1. A known directory returns its immediate files and directories with normalized
+   repository-relative paths and correct kinds.
+2. Entries created in a different order are returned in exact case-sensitive
+   path order.
+3. A child directory is returned but its contents are not, demonstrating
+   non-recursive behavior.
+4. `"."` lists the repository root.
+5. An empty directory returns a successful result with an empty tuple.
+6. Files, directories, symlinks, and a supported test representation of a
+   special entry receive the correct kinds.
+
+Filtering and ignore behavior:
+
+1. Dot-prefixed entries are omitted by default.
+2. Dot-prefixed entries are included when `include_hidden` is true.
+3. An explicitly requested hidden directory can be listed.
+4. A non-hidden entry matched by `.gitignore` remains visible.
+
+Boundaries and security:
+
+1. An absolute outside path returns `outside_repository`.
+2. A `..` path that escapes the repository returns `outside_repository`.
+3. A symlink is reported without being followed or exposing its absolute target.
+4. An explicitly requested internal directory symlink may be listed.
+5. An explicitly requested symlink to an outside directory returns
+   `outside_repository`.
+6. Listing does not change repository file contents.
+
+Failures and boundary values:
+
+1. A missing directory returns `directory_not_found`.
+2. A regular file supplied as the directory path returns `not_a_directory`.
+3. An operating-system permission failure returns `permission_denied`.
+4. Exactly the configured number of entries succeeds.
+5. One entry beyond the configured limit returns `directory_too_large` with no
+   partial result.
+6. A directory that disappears during access returns an accurate controlled
+   failure.
+7. An unexpected programming exception is not disguised as a controlled
+   filesystem failure.

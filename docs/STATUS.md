@@ -1,20 +1,19 @@
 # Project Status
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
 - **Block:** 1.2 — File listing
-- **State:** Ready to define the `list_files` contract and tests
+- **State:** `list_files` contract and test plan defined; ready for the first failing test
 - **Application code:** None
 - **Repository state:** Phase 0 complete; Python project and deterministic quality checks reproduce from a clean checkout
 
 ## Next action
 
-Before implementing `list_files`, define its observable behavior and the tests
-that demonstrate normal listing, boundaries, invalid inputs, filesystem
-failures, security behavior, and unexpected state.
+Choose the minimal module location for `list_files`, then write the first
+failing happy-path test before implementing repository file discovery.
 
 ## Current constraints
 
@@ -26,12 +25,31 @@ failures, security behavior, and unexpected state.
 
 ## Open questions
 
-- Does `list_files` list only one directory level or recurse through the target?
-- How are hidden files, ignored directories, symbolic links, and ordering handled?
-- What result fields make listing success concrete and deterministic?
-- Which listing failures receive specific controlled error codes?
+- Which minimal source and test modules should contain the first repository
+  tool and its result types?
+- What is the smallest happy-path test that demonstrates the observable
+  `list_files` contract before implementation?
+- How should the configured entry limit be supplied without making it a
+  model-controlled argument?
 
 ## Session log
+
+### 2026-09-25 — `list_files` contract and test design
+
+- Chose explicit, non-recursive directory exploration with a required
+  repository-relative path and `"."` for the target root.
+- Defined immutable, sorted listing results with normalized paths and file,
+  directory, symlink, and other entry kinds.
+- Added hidden-entry filtering through an optional `include_hidden` argument and
+  deliberately declined to interpret `.gitignore` in V0.1.
+- Defined non-following symlink discovery and repository-boundary validation for
+  explicitly requested symlink directories.
+- Bounded a call at 1,000 examined entries and chose a controlled
+  `directory_too_large` failure instead of silent truncation.
+- Defined controlled listing failures and tests covering success, filtering,
+  ordering, boundaries, security, limits, failures, and unexpected state.
+- Documented the Block 1.2 contract and test plan in
+  `docs/PHASE_1_WORKBOOK.md`; no application code was added.
 
 ### 2026-09-24 — Common repository-tool contract
 
@@ -81,6 +99,6 @@ failures, security behavior, and unexpected state.
 If useful, begin a future session with:
 
 > Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.2 from the
-> documented next action. Follow the learning workflow: ask me to define the
-> `list_files` contract and its tests before implementation, and update project
-> status when we finish.
+> documented next action. The `list_files` contract and test plan are complete;
+> help me choose the minimal module location and write the first failing
+> happy-path test before implementation. Update project status when we finish.
