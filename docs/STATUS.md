@@ -1,20 +1,20 @@
 # Project Status
 
-Last updated: 2026-09-25
+Last updated: 2026-09-26
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
 - **Block:** 1.2 — File listing
-- **State:** First `list_files` happy path implemented and passing; remaining contract behavior is incomplete
-- **Application code:** Initial immutable listing types and non-recursive happy-path implementation
-- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; current files still need formatting and full quality checks
+- **State:** Hidden-entry filtering implemented; all 6 tests and quality checks are reported passing; ready for commit and push
+- **Application code:** Initial non-recursive `list_files` implementation now filters dot-prefixed entries by default and includes them when requested
+- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; hidden-entry changes are uncommitted
 
 ## Next action
 
-Format the first `list_files` implementation and test, run Black, Ruff, mypy,
-and pytest with the temporary source-path workaround, then add the next failing
-test for hidden-entry behavior.
+Commit and push the hidden-entry filtering implementation and tests. After
+that, begin the symlink-classification exercise: define the listing contract
+for symlink entries and propose the tests before changing the implementation.
 
 ## Current constraints
 
@@ -34,6 +34,32 @@ test for hidden-entry behavior.
   classification, repository confinement, or the entry limit?
 
 ## Session log
+
+### 2026-09-26 — Formatting and quality checks
+
+- The owner reported that Black, Ruff, mypy, and pytest all pass.
+- Pytest requires the temporary `PYTHONPATH=src` workaround in this checkout;
+  the owner confirmed `PYTHONPATH=src uv run pytest` passes with 2 tests.
+- Set the next action to designing and adding a failing test for hidden-entry
+  behavior; implementation remains incomplete.
+
+### 2026-09-26 — Hidden-entry test design
+
+- The owner added root-level and requested-subdirectory tests for default
+  filtering and `include_hidden=True`.
+- `PYTHONPATH=src uv run pytest` collected 6 tests: 4 passed and the 2 tests
+  checking default hidden-entry exclusion failed because hidden entries are
+  still returned. Hidden-entry filtering remains unimplemented.
+
+### 2026-09-26 — Hidden-entry filtering
+
+- Implemented filtering for dot-prefixed entries: they are excluded by default
+  and included when `include_hidden=True`.
+- Added tests for root and explicitly requested subdirectory listings, covering
+  both default filtering and inclusion. Listing remains non-recursive.
+- The owner reports all 6 tests pass, along with Black, Ruff, and mypy.
+- Next, commit and push the changes. After that, begin the symlink-classification
+  exercise by defining its contract and proposing tests before implementation.
 
 ### 2026-09-25 — First `list_files` red-green cycle
 
@@ -121,9 +147,9 @@ test for hidden-entry behavior.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.2 from the
-> documented next action. The first `list_files` happy path passes, but the
-> files still need formatting and full quality checks. Then help me add the next
-> failing test for hidden-entry behavior. Keep using `PYTHONPATH=src` until the
+> Read `AGENTS.md` and `docs/STATUS.md`. Hidden-entry filtering for dot-prefixed
+> names is implemented and all 6 tests plus Black, Ruff, and mypy are reported
+> passing. Commit and push the changes. Then define the `list_files` symlink
+> classification contract and propose tests before implementation. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

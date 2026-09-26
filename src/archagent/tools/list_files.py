@@ -38,19 +38,20 @@ class ListFilesTool:
         entries: list[ListEntry] = []
 
         for child in directory.iterdir():
-            if child.is_dir():
-                kind = EntryKind.DIRECTORY
-            elif child.is_file():
-                kind = EntryKind.FILE
-            else:
-                kind = EntryKind.OTHER
+            if include_hidden or not child.name.startswith("."):
+                if child.is_dir():
+                    kind = EntryKind.DIRECTORY
+                elif child.is_file():
+                    kind = EntryKind.FILE
+                else:
+                    kind = EntryKind.OTHER
 
-            entries.append(
-                ListEntry(
-                    path=child.relative_to(root).as_posix(),
-                    kind=kind,
+                entries.append(
+                    ListEntry(
+                        path=child.relative_to(root).as_posix(),
+                        kind=kind,
+                    )
                 )
-            )
 
         entries.sort(key=lambda entry: entry.path)
 
