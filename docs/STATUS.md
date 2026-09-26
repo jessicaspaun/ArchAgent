@@ -6,14 +6,15 @@ Last updated: 2026-09-25
 
 - **Phase:** 1 — Tool system, without an LLM
 - **Block:** 1.2 — File listing
-- **State:** `list_files` contract and test plan defined; ready for the first failing test
-- **Application code:** None
-- **Repository state:** Phase 0 complete; Python project and deterministic quality checks reproduce from a clean checkout
+- **State:** First `list_files` happy path implemented and passing; remaining contract behavior is incomplete
+- **Application code:** Initial immutable listing types and non-recursive happy-path implementation
+- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; current files still need formatting and full quality checks
 
 ## Next action
 
-Choose the minimal module location for `list_files`, then write the first
-failing happy-path test before implementing repository file discovery.
+Format the first `list_files` implementation and test, run Black, Ruff, mypy,
+and pytest with the temporary source-path workaround, then add the next failing
+test for hidden-entry behavior.
 
 ## Current constraints
 
@@ -25,14 +26,36 @@ failing happy-path test before implementing repository file discovery.
 
 ## Open questions
 
-- Which minimal source and test modules should contain the first repository
-  tool and its result types?
-- What is the smallest happy-path test that demonstrates the observable
-  `list_files` contract before implementation?
-- How should the configured entry limit be supplied without making it a
-  model-controlled argument?
+- What persistent development-environment fix should replace the temporary
+  `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
+- How should controlled failure result types be represented when the first
+  failure test is added?
+- Which contract behavior should follow hidden-entry filtering: symlink
+  classification, repository confinement, or the entry limit?
 
 ## Session log
+
+### 2026-09-25 — First `list_files` red-green cycle
+
+- Added `src/archagent/tools/list_files.py` and
+  `tests/tools/test_list_files.py` using a repository-bound `ListFilesTool`.
+- Defined `EntryKind`, immutable `ListEntry`, and immutable
+  `ListFilesSuccess` records.
+- Wrote a first test for sorted, non-recursive file and directory listing and
+  observed its expected import and `NotImplementedError` failures.
+- Implemented the smallest happy-path directory iteration, relative-path
+  conversion, entry classification, sorting, and tuple result.
+- Used the failing assertion to find and correct an indentation bug that
+  appended only the final directory entry; the owner confirmed the focused
+  test passes after the correction.
+- Diagnosed a macOS `UF_HIDDEN` interaction that causes Python to skip uv's
+  editable-install `.pth` file. Current test commands require the temporary
+  `PYTHONPATH=src` workaround until a reproducible project-level fix is chosen.
+- Remaining contract behavior and controlled failures are intentionally not yet
+  implemented, and the current files still require formatting and full quality
+  checks before the next commit.
+- The initial source, test, and Block 1.2 documentation were committed and
+  pushed as `6180a3d`; follow-up corrections will require another commit.
 
 ### 2026-09-25 — `list_files` contract and test design
 
@@ -99,6 +122,8 @@ failing happy-path test before implementing repository file discovery.
 If useful, begin a future session with:
 
 > Read `AGENTS.md` and `docs/STATUS.md`. Begin Phase 1, Block 1.2 from the
-> documented next action. The `list_files` contract and test plan are complete;
-> help me choose the minimal module location and write the first failing
-> happy-path test before implementation. Update project status when we finish.
+> documented next action. The first `list_files` happy path passes, but the
+> files still need formatting and full quality checks. Then help me add the next
+> failing test for hidden-entry behavior. Keep using `PYTHONPATH=src` until the
+> macOS editable-install issue has a persistent fix, and update project status
+> when we finish.

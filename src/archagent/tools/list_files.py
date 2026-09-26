@@ -2,21 +2,25 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+
 class EntryKind(StrEnum):
     DIRECTORY = "directory"
     FILE = "file"
     OTHER = "other"
     SYMLINK = "symlink"
 
+
 @dataclass(frozen=True)
 class ListEntry:
     path: str
     kind: EntryKind
 
+
 @dataclass(frozen=True)
 class ListFilesSuccess:
     directory: str
     entries: tuple[ListEntry, ...]
+
 
 @dataclass(frozen=True)
 class ListFilesTool:
