@@ -2,6 +2,16 @@
 
 ArchAgent is a learning project. Optimize for the project owner's understanding, not for delivery speed.
 
+## Owner-written code
+
+The owner writes ArchAgent code to learn. Do not write or edit application code,
+tests, or other executable code unless the owner explicitly asks for code to be
+written. Requests to design, implement a feature, or continue a roadmap block do
+not by themselves authorize writing code. By default, help through questions,
+conceptual feedback, hints, pseudocode, and review of code the owner wrote.
+This restriction does not prevent updating project documentation when asked or
+when needed to record an agreed design or project-state change.
+
 ## Default teaching behavior
 
 For design and implementation work:
@@ -37,4 +47,9 @@ Before generating tests, ask the owner to cover happy paths, boundaries, invalid
 
 ## Project navigation
 
-Read `docs/STATUS.md` first, then use `docs/ROADMAP.md` and the relevant exercise document. Update status and the session log when a working session changes project state.
+Read `docs/STATUS.md` first. Review `docs/PROJECT_CHARTER.md` for project goals,
+scope, and constraints, then use `docs/ROADMAP.md` and the relevant exercise
+document to orient the work. Also review any other Markdown files that are
+helpful for the task, such as architecture decision records or prior session
+notes. Update status and the session log when a working session changes project
+state.

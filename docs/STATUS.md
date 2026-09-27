@@ -1,20 +1,22 @@
 # Project Status
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
 - **Block:** 1.2 — File listing
-- **State:** Hidden-entry filtering implemented; all 6 tests and quality checks are reported passing; ready for commit and push
-- **Application code:** Initial non-recursive `list_files` implementation now filters dot-prefixed entries by default and includes them when requested
-- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; hidden-entry changes are uncommitted
+- **State:** Hidden-entry filtering is committed; symlink contract is defined; shared `ToolFailure` is implemented; symlink tests are in progress
+- **Application code:** `list_files` still has the initial non-recursive implementation with hidden-entry filtering; it imports `ToolFailure` and declares the success-or-failure return type, but symlink classification and controlled failures are not implemented
+- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; hidden-entry filtering is committed in `126ee6a`
 
 ## Next action
 
-Commit and push the hidden-entry filtering implementation and tests. After
-that, begin the symlink-classification exercise: define the listing contract
-for symlink entries and propose the tests before changing the implementation.
+Add tests for using symlinks as requested directory paths: an internal target
+should succeed with symlink-relative result paths; outside and dangling targets
+should return `outside_repository` and `directory_not_found`; a file symlink
+should return `not_a_directory`. Run the symlink tests and record their current
+failures before implementing behavior.
 
 ## Current constraints
 
@@ -28,10 +30,6 @@ for symlink entries and propose the tests before changing the implementation.
 
 - What persistent development-environment fix should replace the temporary
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
-- How should controlled failure result types be represented when the first
-  failure test is added?
-- Which contract behavior should follow hidden-entry filtering: symlink
-  classification, repository confinement, or the entry limit?
 
 ## Session log
 
@@ -60,6 +58,34 @@ for symlink entries and propose the tests before changing the implementation.
 - The owner reports all 6 tests pass, along with Black, Ruff, and mypy.
 - Next, commit and push the changes. After that, begin the symlink-classification
   exercise by defining its contract and proposing tests before implementation.
+
+### 2026-09-27 — Symlink contract design
+
+- Confirmed that listed symlink entries are classified as `symlink` whether
+  they target files, directories, outside paths, or missing paths; entry
+  listing does not follow or expose the target.
+- Confirmed that an explicitly requested symlink directory may be followed
+  only when its resolved target remains inside the declared repository root.
+  Outside targets return `outside_repository`.
+- Chose to preserve the caller's repository-relative symlink path in result
+  directory and entry paths.
+- Defined a requested directory or symlink target disappearing before listing
+  as `directory_not_found`; a dangling symlink encountered as an entry remains
+  a successful symlink listing.
+- Updated the Block 1.2 workbook contract and test plan. Next, add the proposed
+  tests and observe their initial failures before implementing behavior.
+
+### 2026-09-27 — Shared failure result and symlink tests
+
+- Defined shared `ToolFailure` as an immutable result with `code: str` and
+  `message: str`, used alongside tool-specific success results.
+- The owner added the shared-result implementation and reported that its
+  construction/field and immutability tests pass.
+- Added four `list_files` symlink-entry tests in the working tree: links to an
+  in-repository file, an in-repository directory, a dangling target, and an
+  outside file target. Symlink test outcomes have not yet been reported.
+- Next, add tests for symlinks supplied as the requested directory path, then
+  run the focused tests and note the expected failures before implementation.
 
 ### 2026-09-25 — First `list_files` red-green cycle
 
@@ -147,9 +173,11 @@ for symlink entries and propose the tests before changing the implementation.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Hidden-entry filtering for dot-prefixed
-> names is implemented and all 6 tests plus Black, Ruff, and mypy are reported
-> passing. Commit and push the changes. Then define the `list_files` symlink
-> classification contract and propose tests before implementation. Keep using `PYTHONPATH=src` until the
-> macOS editable-install issue has a persistent fix, and update project status
-> when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Hidden-entry filtering is committed.
+> The Block 1.2 workbook defines symlink classification, repository boundaries,
+> returned paths, and disappearance behavior. `ToolFailure` is implemented and
+> its focused tests pass; four symlink-entry tests are written. Add tests for
+> symlinks used as requested directory paths, then run the focused tests and
+> record failures before implementation. Keep
+> using `PYTHONPATH=src` until the macOS editable-install issue has a persistent
+> fix, and update project status when we finish.

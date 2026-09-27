@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from .results import ToolFailure
+
 
 class EntryKind(StrEnum):
     DIRECTORY = "directory"
@@ -31,7 +33,7 @@ class ListFilesTool:
         self,
         path: str,
         include_hidden: bool = False,
-    ) -> ListFilesSuccess:
+    ) -> ListFilesSuccess | ToolFailure:
         root = self.repository_root.resolve()
         directory = (root / path).resolve()
 

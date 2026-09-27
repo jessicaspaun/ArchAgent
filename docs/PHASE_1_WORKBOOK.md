@@ -313,15 +313,19 @@ already knows.
 
 ### Symbolic links
 
-A symlink encountered in a directory is returned with `kind: symlink`. The tool
-does not automatically follow it, recurse through it, or expose its absolute
-target.
+A symlink encountered in a directory is returned with `kind: symlink`, whether
+it targets a file, a directory, or a path that does not exist. This includes
+symlinks whose targets are outside the repository. Listing an entry does not
+follow it, recurse through it, or expose its target path.
 
 If the caller explicitly supplies a symlink as the directory path, the tool
-resolves its target before access. It may list the target only when the final
+resolves its target before access. It may list the target only when the resolved
 directory remains inside the authorized repository. A target outside the
-repository returns `outside_repository`. Because listing is non-recursive, an
-internal directory symlink cannot create an automatic traversal cycle.
+repository returns `outside_repository`. The result preserves the repository-
+relative symlink path supplied by the caller for the `directory` and entry
+paths, even though the tool resolves the target internally for the boundary
+check. Because listing is non-recursive, an internal directory symlink cannot
+create an automatic traversal cycle.
 
 ### Resource limit
 
@@ -346,8 +350,11 @@ demonstrates that it is needed.
 | `directory_too_large` | The directory exceeds the configured entry limit. |
 
 A directory that disappears during access is translated into the most accurate
-known controlled failure. An unexpected programming defect is not mislabeled as
-one of these filesystem conditions.
+known controlled failure. If a requested directory or its symlink target
+disappears before it can be listed, the result is `directory_not_found`. A
+dangling symlink encountered as an entry remains a successful `symlink` entry.
+An unexpected programming defect is not mislabeled as one of these filesystem
+conditions.
 
 ### Test plan
 
@@ -363,6 +370,8 @@ Successful behavior:
 5. An empty directory returns a successful result with an empty tuple.
 6. Files, directories, symlinks, and a supported test representation of a
    special entry receive the correct kinds.
+7. Symlinks to files, directories, outside paths, and missing paths are each
+   listed as `symlink` without following the target.
 
 Filtering and ignore behavior:
 
@@ -375,11 +384,16 @@ Boundaries and security:
 
 1. An absolute outside path returns `outside_repository`.
 2. A `..` path that escapes the repository returns `outside_repository`.
-3. A symlink is reported without being followed or exposing its absolute target.
-4. An explicitly requested internal directory symlink may be listed.
-5. An explicitly requested symlink to an outside directory returns
-   `outside_repository`.
-6. Listing does not change repository file contents.
+3. Symlinks to files and directories are reported without being followed or
+   exposing their targets.
+4. An outside-target symlink encountered as an entry is listed without
+   following it.
+5. A dangling symlink encountered as an entry is listed without following it.
+6. An explicitly requested internal directory symlink may be listed, and its
+   result paths retain the symlink path supplied by the caller.
+7. An explicitly requested symlink to a directory outside the repository
+   returns `outside_repository`.
+8. Listing does not change repository file contents.
 
 Failures and boundary values:
 
@@ -389,7 +403,7 @@ Failures and boundary values:
 4. Exactly the configured number of entries succeeds.
 5. One entry beyond the configured limit returns `directory_too_large` with no
    partial result.
-6. A directory that disappears during access returns an accurate controlled
-   failure.
+6. A requested directory or its symlink target that disappears before listing
+   returns `directory_not_found`.
 7. An unexpected programming exception is not disguised as a controlled
    filesystem failure.
