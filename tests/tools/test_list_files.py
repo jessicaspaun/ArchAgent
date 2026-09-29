@@ -237,3 +237,24 @@ def test_list_files_lists_outside_target_symlink(
         directory=".",
         entries=(ListEntry(path="outside_link.txt", kind=EntryKind.SYMLINK),),
     )
+
+def test_list_files_preserves_internal_symlink_path(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "actual"
+    target.mkdir()
+    (target / "file.py").write_text("", encoding="utf-8")
+
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+
+    tool = ListFilesTool(repository_root=tmp_path)
+
+    result = tool.list_files("alias")
+
+    assert result == ListFilesSuccess(
+        directory="alias",
+        entries=(
+            ListEntry(path="alias/file.py", kind=EntryKind.FILE),
+        )
+    )

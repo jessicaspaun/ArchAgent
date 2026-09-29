@@ -1,22 +1,21 @@
 # Project Status
 
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
 - **Block:** 1.2 — File listing
-- **State:** Hidden-entry filtering is committed; symlink contract is defined; shared `ToolFailure` is implemented; symlink tests are in progress
-- **Application code:** `list_files` still has the initial non-recursive implementation with hidden-entry filtering; it imports `ToolFailure` and declares the success-or-failure return type, but symlink classification and controlled failures are not implemented
+- **State:** Hidden-entry filtering is committed; shared `ToolFailure` is implemented; symlink entry classification and caller-path output are implemented; requested-path failure cases remain
+- **Application code:** `list_files` identifies symlinks before file/directory checks and checks the resolved requested directory against the repository root. Controlled failures for missing and non-directory requested paths remain unimplemented.
 - **Repository state:** Initial source and test are committed and pushed in `6180a3d`; hidden-entry filtering is committed in `126ee6a`
 
 ## Next action
 
-Add tests for using symlinks as requested directory paths: an internal target
-should succeed with symlink-relative result paths; outside and dangling targets
-should return `outside_repository` and `directory_not_found`; a file symlink
-should return `not_a_directory`. Run the symlink tests and record their current
-failures before implementing behavior.
+Add tests for outside, dangling, and file symlinks supplied as the requested
+directory path. They should return `outside_repository`, `directory_not_found`,
+and `not_a_directory`, respectively. Then run the focused `list_files` tests
+and handle any failures in the implementation.
 
 ## Current constraints
 
@@ -86,6 +85,18 @@ failures before implementing behavior.
   outside file target. Symlink test outcomes have not yet been reported.
 - Next, add tests for symlinks supplied as the requested directory path, then
   run the focused tests and note the expected failures before implementation.
+
+### 2026-09-28 — Symlink classification and output paths
+
+- The owner updated `list_files` to classify symlink entries before checking
+  file or directory types and to reject requested paths whose resolved targets
+  fall outside the repository root.
+- Added an internal directory-symlink test requiring results to preserve the
+  caller's alias path. The owner reports the path behavior now works.
+- Result entry paths are built from the requested path and child name, while
+  the resolved path remains responsible for filesystem access and containment.
+- Next, add requested-path tests for outside, dangling, and file symlinks and
+  implement the corresponding controlled failure behavior.
 
 ### 2026-09-25 — First `list_files` red-green cycle
 

@@ -37,11 +37,20 @@ class ListFilesTool:
         root = self.repository_root.resolve()
         directory = (root / path).resolve()
 
+        if not directory.is_relative_to(root):
+            return ToolFailure(
+                code="outside_repository",
+                message="provided directory is outside root boundary",
+            )
+
+
         entries: list[ListEntry] = []
 
         for child in directory.iterdir():
             if include_hidden or not child.name.startswith("."):
-                if child.is_dir():
+                if child.is_symlink():
+                    kind = EntryKind.SYMLINK
+                elif child.is_dir():
                     kind = EntryKind.DIRECTORY
                 elif child.is_file():
                     kind = EntryKind.FILE
@@ -50,7 +59,7 @@ class ListFilesTool:
 
                 entries.append(
                     ListEntry(
-                        path=child.relative_to(root).as_posix(),
+                        path=(Path(path) / child.name).as_posix(),
                         kind=kind,
                     )
                 )
@@ -58,6 +67,7 @@ class ListFilesTool:
         entries.sort(key=lambda entry: entry.path)
 
         return ListFilesSuccess(
-            directory=directory.relative_to(root).as_posix(),
+            # directory=directory.relative_to(root).as_posix(),
+            directory=Path(path).as_posix(),
             entries=tuple(entries),
         )
