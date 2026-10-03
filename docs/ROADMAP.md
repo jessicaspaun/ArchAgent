@@ -23,7 +23,7 @@ Exit condition: the owner can explain what V0.1 is, how its major pieces interac
 
 - [x] **1.1 Tool contract** — decide what tools expose, receive, return, how errors appear, and how discovery and invocation work.
 - [x] **1.2 File listing** — define behavior and tests, then implement repository file discovery.
-- [ ] **1.3 File reading** — design and implement safe repository file access, including boundaries and failures.
+- [x] **1.3 File reading** — design and implement safe repository file access, including boundaries and failures.
 - [ ] **1.4 Code search** — implement lexical repository search; no semantic or vector search.
 - [ ] **1.5 Tool registry** — design discovery and invocation without a growing conditional chain.
 - [ ] **1.6 Tool testing** — review unit, integration, failure, and security-related coverage.

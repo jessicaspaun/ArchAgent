@@ -422,3 +422,78 @@ Failures and boundary values:
    returns `directory_not_found`.
 7. An unexpected programming exception is not disguised as a controlled
    filesystem failure.
+
+## 1.3 File reading
+
+### Supported text — agreed
+
+`read_file` decodes file bytes as strict UTF-8. Invalid UTF-8 returns
+`unsupported_content`; the tool does not guess another encoding or replace
+invalid bytes. An empty file succeeds with empty text. The common contract's
+promise to return exact text still applies.
+
+### Resource limit — agreed
+
+The starting per-file limit is 256 KiB (262,144 bytes), owned by application
+configuration rather than tool-call arguments. Tests may inject a smaller limit.
+Exactly the limit succeeds; larger files return `file_too_large` without partial
+contents. Read at most the limit plus one byte to detect an oversized file.
+The power-of-two value is a convention, not a correctness requirement.
+
+### Binary-content policy — agreed
+
+Content containing a NUL byte (`0x00`) returns `unsupported_content`, even if it
+would decode as UTF-8. Otherwise, valid UTF-8 is accepted without modifying its
+text. This is a simple content policy, not a guarantee to identify every binary
+format; file extensions do not determine whether content is supported.
+
+### Symlinks and file types — agreed
+
+The tool may follow a requested symlink only when its resolved target is inside
+the repository. An internal regular file may be read; output preserves the caller
+path, including aliases and `..`, using the same spelling convention as
+`list_files`. An outside target returns `outside_repository`, a missing target
+returns `file_not_found`, and a directory or special filesystem object returns
+`not_a_file`. Special objects must be rejected before reading; opening a named
+pipe for a normal read can block while waiting for another process.
+
+### Success result and access behavior — agreed
+
+Use an immutable `ReadFileSuccess` with `path: str` and `content: str`, alongside
+the shared `ToolFailure`. Preserve exact decoded text, including original line
+endings and a UTF-8 byte-order mark if present. Decode bounded binary reads so
+automatic newline conversion cannot change the contents.
+
+Permission failures during resolution or file access return `permission_denied`.
+A file disappearing before access returns `file_not_found`. Unexpected defects
+propagate. Messages must not expose absolute filesystem paths.
+
+### Controlled failures
+
+| Code | Meaning |
+| --- | --- |
+| `outside_repository` | The resolved target is outside the repository. |
+| `file_not_found` | The requested file or symlink target does not exist or disappears before access. |
+| `not_a_file` | The target is a directory or special object, or a path component is not a directory. |
+| `permission_denied` | The operating system refused resolution or file access. |
+| `file_too_large` | More than the configured byte limit was read. No partial contents are returned. |
+| `unsupported_content` | Contents include a NUL byte or cannot be decoded as strict UTF-8. |
+
+Size validation precedes content validation. An oversized file returns
+`file_too_large` even if its bytes are also invalid UTF-8 or contain NULs.
+
+### Test inventory — accepted
+
+Tests cover ordinary and empty text, Unicode and exact line endings,
+caller-path preservation, internal and outside symlinks, parent traversal,
+missing paths, directories and special objects, invalid UTF-8 and NUL bytes,
+exact and exceeded byte limits, bounded reads, permission and disappearance
+failures, unchanged file contents, and unexpected defects. The owner accepted
+this plan before implementation. Additional boundary cases cover UTF-8 byte
+counts rather than character counts, a UTF-8 byte-order mark, growth after the
+metadata check, replacement by a directory, and stream closure.
+
+Application configuration rejects negative byte limits with `ValueError` so a
+negative read size cannot permit an unbounded read. A zero-byte limit allows only
+empty files. Request-shape validation remains assigned to the invocation layer
+in Block 1.5.

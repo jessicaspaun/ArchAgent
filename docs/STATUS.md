@@ -5,16 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.3 — File reading (next; design not started)
-- **State:** Block 1.2 is complete; the owner confirmed the full test suite passes
-- **Application code:** `list_files` uses streaming directory enumeration, counts hidden entries toward the configured limit, stops on the first excess entry, and returns controlled missing-directory, non-directory, permission, and size failures. Repository containment is checked before listing; caller symlink paths are preserved.
-- **Repository state:** Block 1.2 completion includes listing implementation, expanded tests, and contract documentation. Prior symlink work is committed in `492b3ad`.
+- **Block:** 1.4 — Code search (next; design not started)
+- **State:** Block 1.3 is complete; the owner confirmed the full test suite passes; Black, Ruff, and mypy pass
+- **Application code:** `ReadFileTool` returns immutable caller-path and exact-content results, confines resolved paths to the repository, rejects non-regular targets, reads at most 256 KiB plus one byte, and handles size, NUL, UTF-8, missing-path, non-file, and permission failures. `list_files` is complete.
+- **Repository state:** Block 1.2 is committed in `39e490b`. Block 1.3 completion includes file-reading source, tests, and contract documentation.
 
 ## Next action
 
-Begin Block 1.3 by proposing the `read_file` contract and its test inventory.
-Decide supported text encoding, byte limits, success fields, symlink behavior,
-special-file handling, and controlled failures before implementation.
+Begin Block 1.4 by defining the `search_code` contract and test inventory.
+Decide query semantics, search scope, match output, traversal and symlink rules,
+resource limits, and failure behavior before implementation. Keep search lexical.
 
 ## Current constraints
 
@@ -30,6 +30,50 @@ special-file handling, and controlled failures before implementation.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.3 completion
+
+- The owner confirmed the full test suite passes after file-reading implementation.
+  Black, Ruff, and mypy also pass.
+- Marked Block 1.3 complete and advanced the next action to Block 1.4 lexical
+  code-search design. No code-search implementation has been added.
+
+### 2026-10-03 — Block 1.3 implementation
+
+- The owner accepted the result shape and test inventory before implementation.
+- Added immutable `ReadFileSuccess(path, content)` and repository-bound
+  `ReadFileTool` with a configurable default limit of 256 KiB.
+- Implemented resolved containment and regular-file checks, bounded binary
+  reading, size validation, NUL rejection, strict UTF-8 decoding, exact line
+  endings, caller-path preservation, and specific safe filesystem failures.
+- Added the accepted tests, including symlink and parent traversal, unsupported
+  contents, exact and exceeded byte limits, actual default-limit cases, bounded
+  reads during simulated growth, permission failures, disappearance, directory
+  replacement, immutable results, unchanged contents, and unexpected exceptions.
+- Reject negative byte limits; a zero limit permits only an empty file.
+- Black, Ruff, and full mypy checks pass. Pytest has not been run for Block 1.3;
+  the owner will run it. Changes are uncommitted.
+
+### 2026-10-03 — Block 1.3 design begins
+
+- Reviewed the common tool contract and learning workflow. File reading already
+  promises exact text, a repository-relative result path, immutable success or
+  controlled failure, repository confinement, and no modifications.
+- The owner chose strict UTF-8; invalid bytes return `unsupported_content`
+  without encoding guesses or replacement characters. Recorded this in the
+  Block 1.3 workbook.
+- The owner selected 256 KiB (262,144 bytes) as the starting per-file limit.
+  Oversized files return `file_too_large` with no partial contents; bounded reads
+  inspect at most the limit plus one byte. Remaining contract choices are next.
+- The owner agreed to reject NUL-containing content as `unsupported_content`,
+  including content that would otherwise decode as UTF-8. This heuristic does
+  not claim to detect all binary formats.
+- The owner agreed to internal file-symlink access with caller-path preservation,
+  rejection of outside targets, `file_not_found` for missing targets, and
+  `not_a_file` for directory or special-object targets.
+- Proposed immutable success fields and a test inventory in the workbook;
+  verification design is next before implementation.
+  No file-reading code or tests have been added.
 
 ### 2026-10-03 — Block 1.2 completion
 
@@ -238,9 +282,9 @@ special-file handling, and controlled failures before implementation.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 1.2 is complete; the owner confirmed
-> the full test suite passes, and Black, Ruff, and mypy pass. Begin Block 1.3 by
-> proposing the `read_file` contract and tests before implementation.
+> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 and 1.3 are complete; the owner
+> confirmed the full test suite passes, and Black, Ruff, and mypy pass. Begin
+> Block 1.4 by defining the lexical `search_code` contract and tests.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.
