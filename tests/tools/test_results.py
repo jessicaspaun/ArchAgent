@@ -22,4 +22,5 @@ def test_tool_failure_is_immutable() -> None:
     )
 
     with pytest.raises(FrozenInstanceError):
-        failure.code = "direcotry_not_found"
+        # Deliberately violate the static contract to test runtime enforcement.
+        failure.code = "directory_not_found"  # type: ignore[misc]

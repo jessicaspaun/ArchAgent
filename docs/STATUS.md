@@ -1,21 +1,20 @@
 # Project Status
 
-Last updated: 2026-09-28
+Last updated: 2026-10-03
 
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.2 — File listing
-- **State:** Hidden-entry filtering is committed; shared `ToolFailure` is implemented; symlink entry classification and caller-path output are implemented; requested-path failure cases remain
-- **Application code:** `list_files` identifies symlinks before file/directory checks and checks the resolved requested directory against the repository root. Controlled failures for missing and non-directory requested paths remain unimplemented.
-- **Repository state:** Initial source and test are committed and pushed in `6180a3d`; hidden-entry filtering is committed in `126ee6a`
+- **Block:** 1.3 — File reading (next; design not started)
+- **State:** Block 1.2 is complete; the owner confirmed the full test suite passes
+- **Application code:** `list_files` uses streaming directory enumeration, counts hidden entries toward the configured limit, stops on the first excess entry, and returns controlled missing-directory, non-directory, permission, and size failures. Repository containment is checked before listing; caller symlink paths are preserved.
+- **Repository state:** Block 1.2 completion includes listing implementation, expanded tests, and contract documentation. Prior symlink work is committed in `492b3ad`.
 
 ## Next action
 
-Add tests for outside, dangling, and file symlinks supplied as the requested
-directory path. They should return `outside_repository`, `directory_not_found`,
-and `not_a_directory`, respectively. Then run the focused `list_files` tests
-and handle any failures in the implementation.
+Begin Block 1.3 by proposing the `read_file` contract and its test inventory.
+Decide supported text encoding, byte limits, success fields, symlink behavior,
+special-file handling, and controlled failures before implementation.
 
 ## Current constraints
 
@@ -31,6 +30,61 @@ and handle any failures in the implementation.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.2 completion
+
+- The owner confirmed the full expanded test suite passes, including caller-path
+  regression coverage. Black, Ruff, and mypy checks also pass.
+- Marked Block 1.2 complete in the roadmap and advanced the next action to the
+  Block 1.3 `read_file` design exercise. No file-reading code has been added.
+
+### 2026-10-03 — Caller-path regression coverage
+
+- Added the three agreed cases: ordinary parent traversal preserves the caller
+  path; a symlink followed by `..` lists the target's parent while preserving
+  the alias; parent traversal through a symlink that resolves outside is rejected.
+- The symlink-parent fixture includes a root-only file so an incorrect lexical
+  normalization would produce visibly different results.
+- Application code already expresses this contract and needed no further edits.
+- Black, Ruff, and full mypy checks pass. The owner will run the expanded suite.
+
+### 2026-10-03 — Permission failures, entry limits, and coverage review
+
+- The owner requested a walkthrough of design choices with AI implementation,
+  and proposed testing the limit with a large directory.
+- Used `os.scandir()` for streaming enumeration with deterministic closure.
+  All immediate entries count toward the limit, including hidden entries.
+  The first excess entry produces `directory_too_large` without a partial result.
+- Added safe `permission_denied` handling for resolution and directory access.
+  Specific filesystem exceptions are caught; unexpected defects propagate.
+- Added a real 1,001-entry directory test, exact-limit and hidden-entry tests,
+  and an instrumented test for stopping and closing after the first excess entry.
+- Expanded coverage for permission failures during resolution, opening, and
+  iteration; unexpected errors; empty and explicitly hidden directories;
+  `.gitignore` independence and unchanged file contents; named pipes; outside
+  paths; ordinary invalid paths; and disappearing directories or symlink targets.
+- Added a narrow mypy suppression to the existing immutability test because its
+  intentional assignment must reach runtime to verify `FrozenInstanceError`.
+- Black, Ruff, and full mypy checks pass. The expanded pytest suite has not yet
+  been run; the owner ran the earlier 13 focused tests successfully.
+- The owner clarified that caller-path preservation was already decided:
+  results use the supplied path, while resolution governs access and boundary
+  checks. `..` remains in returned paths; the workbook now makes this explicit.
+  No new normalization design is required. Shared request-shape validation
+  remains assigned to Block 1.5.
+
+### 2026-10-03 — Requested-path symlink failures
+
+- The owner authorized AI-written code for this session.
+- Added tests for outside, dangling, and file symlinks used as the requested
+  directory. The owner reported 11 passing tests and two expected failures:
+  uncaught `FileNotFoundError` and `NotADirectoryError`.
+- Wrapped directory iteration to translate those two exceptions into the agreed
+  controlled failures. Repository containment remains checked before listing;
+  failure messages do not expose absolute filesystem paths.
+- Ran Black on both changed Python files and Ruff across the repository; both
+  completed successfully. The owner then confirmed all 13 focused `list_files`
+  tests pass. Changes are uncommitted.
 
 ### 2026-09-26 — Formatting and quality checks
 
@@ -184,11 +238,9 @@ and handle any failures in the implementation.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Hidden-entry filtering is committed.
-> The Block 1.2 workbook defines symlink classification, repository boundaries,
-> returned paths, and disappearance behavior. `ToolFailure` is implemented and
-> its focused tests pass; four symlink-entry tests are written. Add tests for
-> symlinks used as requested directory paths, then run the focused tests and
-> record failures before implementation. Keep
-> using `PYTHONPATH=src` until the macOS editable-install issue has a persistent
-> fix, and update project status when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 1.2 is complete; the owner confirmed
+> the full test suite passes, and Black, Ruff, and mypy pass. Begin Block 1.3 by
+> proposing the `read_file` contract and tests before implementation.
+> Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
+> macOS editable-install issue has a persistent fix, and update project status
+> when we finish.

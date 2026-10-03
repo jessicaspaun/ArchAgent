@@ -327,6 +327,12 @@ paths, even though the tool resolves the target internally for the boundary
 check. Because listing is non-recursive, an internal directory symlink cannot
 create an automatic traversal cycle.
 
+Returned path spelling follows `Path(path).as_posix()`: redundant separators
+and `.` components are removed, while symlink aliases and `..` components are
+preserved. Entry paths append the child name to that caller path. Removing `..`
+lexically could change the meaning of a path containing symlinks; filesystem
+resolution is used only for access and repository-boundary validation.
+
 ### Resource limit
 
 One call examines at most 1,000 immediate directory entries. The limit is fixed
@@ -338,6 +344,11 @@ When the tool discovers entry 1,001, it stops and returns
 calculate the exact directory size. This prevents a partial result from being
 mistaken for a complete view. Pagination is deferred until real use
 demonstrates that it is needed.
+
+Implementation uses streaming `os.scandir()` enumeration. Hidden entries count
+toward the limit before filtering. At the default limit, entries 1 through 1,000
+may be classified; discovering entry 1,001 establishes that the limit is exceeded.
+The iterator closes on success, a controlled failure, or an unexpected exception.
 
 ### Controlled failures
 
@@ -394,6 +405,10 @@ Boundaries and security:
 7. An explicitly requested symlink to a directory outside the repository
    returns `outside_repository`.
 8. Listing does not change repository file contents.
+9. Ordinary `..` traversal inside the repository retains the caller path in
+   results. A symlink followed by `..` accesses the resolved target's parent
+   while retaining the alias. If that traversal resolves outside, it returns
+   `outside_repository`.
 
 Failures and boundary values:
 
