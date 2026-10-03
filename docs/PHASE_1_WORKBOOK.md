@@ -836,3 +836,39 @@ and absolute paths; resolved containment remains with repository tools.
 
 Verification on 2026-10-03: all 40 registry/setup tests and all 178 repository
 tests pass. Black, Ruff, and strict mypy also pass.
+
+## Block 1.6 — Tool testing
+
+### Portfolio review
+
+The existing 178 tests were reviewed as a portfolio through overlapping unit,
+contract, integration, failure, and security lenses. A test may support more
+than one lens; forcing each test into one exclusive category would hide useful
+coverage. Repeated boundary cases across `list_files`, `read_file`,
+`search_code`, and the registry verify distinct composition layers and do not
+currently justify consolidation.
+
+Python's line tracer was used only to locate implementation code the tests did
+not execute. It reported 100% executable-line coverage for the three repository
+tools and shared result type, and 97% for the registry. Unexecuted registry
+lines are defensive typed-wrapper assertions, the unused configurable
+extra-argument path, and one setup exception branch. No tests were added merely
+to increase that percentage.
+
+### Gaps and agreed behavior
+
+Four meaningful gaps were selected:
+
+1. `ListFilesTool` rejects a negative entry limit at initialization, matching
+   the configuration boundary used by reading and search tools.
+2. Repository-relative registry paths reject NUL characters as controlled
+   `invalid_arguments` failures before filesystem access.
+3. Immutable discovery dataclasses are explicitly JSON serializable after the
+   standard `dataclasses.asdict` conversion.
+4. File and directory targets are revalidated after opening so replacement by
+   an outside symlink between initial containment validation and access cannot
+   disclose outside contents. File reads additionally compare device and inode
+   identity before consuming bytes.
+
+Final verification on 2026-10-03: all 182 tests pass. Black, Ruff, and strict
+mypy also pass. Block 1.6 is complete.

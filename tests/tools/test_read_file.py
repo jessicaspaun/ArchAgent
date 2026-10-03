@@ -25,6 +25,32 @@ def test_read_file_returns_exact_text(tmp_path: Path, content: str) -> None:
     assert target.read_bytes() == data
 
 
+def test_read_file_rejects_file_replaced_by_outside_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    target = repository / "file.py"
+    target.write_bytes(b"public")
+    outside = tmp_path / "secret.py"
+    outside.write_bytes(b"secret")
+    original_open = Path.open
+
+    def replacing_open(path: Path, mode: str) -> BinaryIO:
+        target.unlink()
+        target.symlink_to(outside)
+        assert mode == "rb"
+        return original_open(path, "rb")
+
+    monkeypatch.setattr(Path, "open", replacing_open)
+
+    result = ReadFileTool(repository_root=repository).read_file("file.py")
+
+    assert isinstance(result, ToolFailure)
+    assert result.code == "outside_repository"
+
+
 def test_read_file_hidden_file_and_extension_do_not_filter_text(tmp_path: Path) -> None:
     directory = tmp_path / ".hidden"
     directory.mkdir()

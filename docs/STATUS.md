@@ -5,17 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.6 — Tool testing (next; review not started)
-- **State:** Block 1.5 is complete; all 178 repository tests, Black, Ruff, and mypy pass
-- **Application code:** The fixed `ToolRegistry` supports immutable metadata discovery, strict request validation, default filling, unknown-tool recovery, and typed invocation adapters. Separate repository setup validates and retains the resolved boundary, rejects protected-source overlap, and binds all three repository tools.
-- **Repository state:** Blocks 1.2–1.4 are committed. Block 1.5 completion includes registry/setup source, 40 tests, and finalized contract documentation.
+- **Block:** 1.7 — Refactor (next; review not started)
+- **State:** Block 1.6 is complete. The 178-test portfolio review found complete line execution in the repository tools and 97% in the registry. Four focused cases closed meaningful contract gaps; all 182 tests, Black, Ruff, and mypy pass.
+- **Application code:** Repository tools now reject negative listing limits, reject NUL-containing request paths, and revalidate opened filesystem targets before reading or listing. Registry metadata has an explicit tested JSON conversion path through `dataclasses.asdict`.
+- **Repository state:** Blocks 1.2–1.5 are committed. Block 1.6 completion includes the coverage review, focused hardening, four additional cases, and updated contract documentation.
 
 ## Next action
 
-Begin Block 1.6 by reviewing the existing 178 tests as a portfolio: classify
-unit, contract, integration, failure, and security coverage; identify meaningful
-gaps and unnecessary duplication; use coverage only to locate unexercised code.
-Keep code tests distinct from later agent evaluations.
+Begin Block 1.7 with a behavior-preserving review of repetition demonstrated by
+the three repository tools. Extract only abstractions that make an existing
+contract easier to understand or maintain; add no new behavior.
 
 ## Current constraints
 
@@ -31,6 +30,29 @@ Keep code tests distinct from later agent evaluations.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.6 portfolio review and gap implementation
+
+- Reviewed all 178 tests through overlapping unit, contract, integration,
+  failure, and security lenses. The repeated cases exercise different layers;
+  no duplication justified removal.
+- Used Python's line tracer only to locate unexercised implementation code. It
+  reported 100% executable-line coverage in the three repository tools and
+  shared results, plus 97% in the registry. The registry misses are defensive
+  wrapper checks, an unused extra-argument mode, and one platform-specific setup
+  branch; line coverage did not drive tests for those lines.
+- Added explicit rejection of negative `list_files` entry limits and NUL-bearing
+  repository path arguments.
+- Added adversarial replacement tests for a requested directory and file being
+  exchanged for outside symlinks between validation and access. Listing now
+  resolves the opened directory again before iteration. Reading rechecks
+  containment and compares the opened file identity with the current target
+  before consuming bytes.
+- Clarified the serialization contract with an actual `json.dumps` assertion
+  over metadata converted through `dataclasses.asdict`; discovery records remain
+  immutable typed dataclasses.
+- Final verification: the owner reported all 182 tests pass. Black, Ruff, and
+  strict mypy pass. Marked Block 1.6 complete.
 
 ### 2026-10-03 — Block 1.5 implementation and completion
 
@@ -396,10 +418,10 @@ Keep code tests distinct from later agent evaluations.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.5 are complete.
-> All 178 repository tests, Black, Ruff, and mypy pass. Begin Block 1.6 by
-> reviewing and classifying the test portfolio, then identify meaningful gaps
-> and duplication before adding or changing tests.
+> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.6 are complete.
+> All 182 repository tests, Black, Ruff, and mypy pass. Begin Block 1.7 with a
+> behavior-preserving review of abstractions demonstrated by the repository
+> tools; add no new behavior.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

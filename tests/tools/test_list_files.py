@@ -15,6 +15,11 @@ from archagent.tools.list_files import (
 from archagent.tools.results import ToolFailure
 
 
+def test_list_files_rejects_negative_entry_limit(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_entries must be non-negative"):
+        ListFilesTool(repository_root=tmp_path, max_entries=-1)
+
+
 def test_list_files_returns_sorted_immediate_entries(tmp_path: Path) -> None:
     (tmp_path / "zebra.py").write_text("", encoding="utf-8")
 
@@ -33,6 +38,35 @@ def test_list_files_returns_sorted_immediate_entries(tmp_path: Path) -> None:
             ListEntry(path="zebra.py", kind=EntryKind.FILE),
         ),
     )
+
+
+def test_list_files_rejects_directory_replaced_by_outside_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repo"
+    requested = repository / "requested"
+    outside = tmp_path / "outside"
+    requested.mkdir(parents=True)
+    outside.mkdir()
+    (outside / "secret.py").write_text("secret", encoding="utf-8")
+    original_scandir = os.scandir
+
+    @contextmanager
+    def replacing_scandir(
+        directory: Path,
+    ) -> Iterator[Iterator[os.DirEntry[str]]]:
+        requested.rmdir()
+        requested.symlink_to(outside, target_is_directory=True)
+        with original_scandir(directory) as children:
+            yield children
+
+    monkeypatch.setattr(list_files_module, "scandir", replacing_scandir)
+
+    result = ListFilesTool(repository_root=repository).list_files("requested")
+
+    assert isinstance(result, ToolFailure)
+    assert result.code == "outside_repository"
 
 
 def test_list_files_excludes_hidden_entries_by_default(tmp_path: Path) -> None:

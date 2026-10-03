@@ -311,6 +311,12 @@ def _value_error(argument: ArgumentDefinition, value: object) -> str | None:
     if (
         ArgumentConstraint.REPOSITORY_RELATIVE in argument.constraints
         and isinstance(value, str)
+        and "\x00" in value
+    ):
+        return "must not contain NUL characters."
+    if (
+        ArgumentConstraint.REPOSITORY_RELATIVE in argument.constraints
+        and isinstance(value, str)
         and Path(value).is_absolute()
     ):
         return "must be repository-relative."

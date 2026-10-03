@@ -30,6 +30,10 @@ class ListFilesTool:
     repository_root: Path
     max_entries: int = 1_000
 
+    def __post_init__(self) -> None:
+        if self.max_entries < 0:
+            raise ValueError("max_entries must be non-negative")
+
     def list_files(
         self,
         path: str,
@@ -48,6 +52,13 @@ class ListFilesTool:
                 )
 
             with scandir(directory) as children:
+                current_directory = directory.resolve()
+                if not current_directory.is_relative_to(root):
+                    return ToolFailure(
+                        code="outside_repository",
+                        message="provided directory is outside root boundary",
+                    )
+
                 for count, child in enumerate(children, start=1):
                     # Count hidden entries too: the limit bounds scanning work.
                     if count > self.max_entries:

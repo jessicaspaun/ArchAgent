@@ -1,3 +1,4 @@
+import json
 from collections.abc import Mapping
 from dataclasses import FrozenInstanceError, asdict
 from pathlib import Path
@@ -247,6 +248,7 @@ def test_discovery_is_alphabetical_immutable_and_contains_only_metadata() -> Non
         ),
     )
     serialized = [asdict(tool) for tool in discovered]
+    json.dumps(serialized)
     assert "adapter" not in repr(serialized)
     assert "repository_root" not in repr(serialized)
     assert "default" not in serialized[0].get("arguments", {})
@@ -261,6 +263,7 @@ def test_discovery_is_alphabetical_immutable_and_contains_only_metadata() -> Non
         ({"path": 42}, "Argument 'path' must be a string."),
         ({"path": True}, "Argument 'path' must be a string."),
         ({"path": ""}, "Argument 'path' must not be empty."),
+        ({"path": "bad\x00path"}, "Argument 'path' must not contain NUL characters."),
         ({"path": "/outside"}, "Argument 'path' must be repository-relative."),
         ({"path": ".", "zeta": 1, "alpha": 2}, "Unexpected argument 'alpha'."),
     ],
