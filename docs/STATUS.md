@@ -4,17 +4,17 @@ Last updated: 2026-10-03
 
 ## Current position
 
-- **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.7 — Refactor (next; review not started)
-- **State:** Block 1.6 is complete. The 178-test portfolio review found complete line execution in the repository tools and 97% in the registry. Four focused cases closed meaningful contract gaps; all 182 tests, Black, Ruff, and mypy pass.
-- **Application code:** Repository tools now reject negative listing limits, reject NUL-containing request paths, and revalidate opened filesystem targets before reading or listing. Registry metadata has an explicit tested JSON conversion path through `dataclasses.asdict`.
-- **Repository state:** Blocks 1.2–1.5 are committed. Block 1.6 completion includes the coverage review, focused hardening, four additional cases, and updated contract documentation.
+- **Phase:** 2 — Model boundary and structured output (next)
+- **Block:** 2.1 — Model interface (next; design not started)
+- **State:** Phase 1 is complete. All three repository tools can be discovered and invoked through the tested registry without a model. The behavior-preserving Block 1.7 refactor passes all 190 tests, Black, Ruff, and mypy.
+- **Application code:** Shared internal path helpers now own repository resolution and containment while listing and reading retain their operation-specific validation, failures, and filesystem mechanics. Search continues to compose those tools, and the registry remains the public discovery and invocation boundary.
+- **Repository state:** Blocks 1.2–1.6 are committed. Block 1.7 completion includes the internal path-boundary extraction, eight focused tests, and final Phase 1 documentation.
 
 ## Next action
 
-Begin Block 1.7 with a behavior-preserving review of repetition demonstrated by
-the three repository tools. Extract only abstractions that make an existing
-contract easier to understand or maintain; add no new behavior.
+Begin Block 2.1 by defining the model boundary without selecting an agent
+framework. Compare the minimum request, response, configuration, and failure
+contracts needed to keep ArchAgent from depending directly on one provider.
 
 ## Current constraints
 
@@ -30,6 +30,27 @@ contract easier to understand or maintain; add no new behavior.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.7 refactor and Phase 1 completion
+
+- Reviewed repetition across listing, reading, search, and the registry before
+  changing code. Kept limit checks, path display formatting, filesystem failure
+  translation, result records, search traversal, and registry responsibilities
+  local because their similarities did not justify new abstractions.
+- Identified repository resolution and containment as the one repeated security
+  contract demonstrated by both listing and reading.
+- Added internal `_paths.py` helpers that establish a resolved repository
+  boundary and resolve later targets against that retained boundary. A dedicated
+  internal exception reports containment violations without choosing a public
+  tool failure message.
+- Listing and reading translate that exception into their existing public
+  failures and continue to own type checks, filesystem operations, race checks,
+  and operation-specific exception meanings. Search benefits through composition.
+- Added eight focused tests for contained paths, parent and symlink semantics,
+  absolute/parent/symlink escapes, missing targets, permission propagation, and
+  retaining an already established root.
+- Final verification: the owner reported all 190 tests pass. Black, Ruff, and
+  strict mypy pass. Marked Block 1.7 and Phase 1 complete.
 
 ### 2026-10-03 — Block 1.6 portfolio review and gap implementation
 
@@ -418,10 +439,9 @@ contract easier to understand or maintain; add no new behavior.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.6 are complete.
-> All 182 repository tests, Black, Ruff, and mypy pass. Begin Block 1.7 with a
-> behavior-preserving review of abstractions demonstrated by the repository
-> tools; add no new behavior.
+> Read `AGENTS.md` and `docs/STATUS.md`. Phase 1 is complete: all 190 tests,
+> Black, Ruff, and mypy pass. Begin Block 2.1 by designing a provider-conscious
+> model interface without selecting an agent framework or making a model call.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

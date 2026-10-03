@@ -872,3 +872,31 @@ Four meaningful gaps were selected:
 
 Final verification on 2026-10-03: all 182 tests pass. Black, Ruff, and strict
 mypy also pass. Block 1.6 is complete.
+
+## Block 1.7 — Behavior-preserving refactor
+
+The refactor review compared repetition across all three tools and the registry.
+Negative-limit checks, caller-path formatting, filesystem error translation,
+success records, search traversal, and registry responsibilities remain local:
+their meanings differ by operation, or their repetition is too small to justify
+another abstraction.
+
+Repository path resolution and containment were extracted because listing and
+reading independently implemented the same security boundary, including
+revalidation after opening a target. The internal `_paths.py` module now
+provides:
+
+- `resolve_repository_path()`, which resolves the repository root once and
+  resolves a requested path within it;
+- `resolve_within_repository()`, which resolves a later target against that
+  already established root; and
+- `OutsideRepositoryError`, which reports only the internal containment fact so
+  each tool can retain its existing public failure message.
+
+Focused tests cover ordinary contained paths, filesystem-aware parent traversal,
+internal symlinks, absolute/parent/symlink escapes, missing contained paths,
+permission propagation, and retention of an established root. Existing tool
+tests remain the main proof that observable behavior did not change.
+
+Final verification on 2026-10-03: all 190 tests pass. Black, Ruff, and strict
+mypy also pass. Block 1.7 and Phase 1 are complete.

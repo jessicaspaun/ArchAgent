@@ -3,6 +3,11 @@ from os import fstat
 from pathlib import Path
 from stat import S_ISREG
 
+from ._paths import (
+    OutsideRepositoryError,
+    resolve_repository_path,
+    resolve_within_repository,
+)
 from .results import ToolFailure
 
 
@@ -23,14 +28,7 @@ class ReadFileTool:
 
     def read_file(self, path: str) -> ReadFileSuccess | ToolFailure:
         try:
-            root = self.repository_root.resolve()
-            target = (root / path).resolve()
-
-            if not target.is_relative_to(root):
-                return ToolFailure(
-                    code="outside_repository",
-                    message="The requested file is outside the repository.",
-                )
+            root, target = resolve_repository_path(self.repository_root, path)
 
             # Reject directories and special objects before opening for a read.
             if not S_ISREG(target.stat().st_mode):
@@ -42,12 +40,7 @@ class ReadFileTool:
             # A binary read preserves line endings and bounds work even if the
             # file grows after the metadata check.
             with target.open("rb") as stream:
-                current_target = target.resolve()
-                if not current_target.is_relative_to(root):
-                    return ToolFailure(
-                        code="outside_repository",
-                        message="The requested file is outside the repository.",
-                    )
+                current_target = resolve_within_repository(root, target)
 
                 try:
                     opened = fstat(stream.fileno())
@@ -83,6 +76,11 @@ class ReadFileTool:
                 )
 
             content = data.decode("utf-8", errors="strict")
+        except OutsideRepositoryError:
+            return ToolFailure(
+                code="outside_repository",
+                message="The requested file is outside the repository.",
+            )
         except FileNotFoundError:
             return ToolFailure(
                 code="file_not_found",

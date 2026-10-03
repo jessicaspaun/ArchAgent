@@ -3,6 +3,11 @@ from enum import StrEnum
 from os import scandir
 from pathlib import Path
 
+from ._paths import (
+    OutsideRepositoryError,
+    resolve_repository_path,
+    resolve_within_repository,
+)
 from .results import ToolFailure
 
 
@@ -42,22 +47,10 @@ class ListFilesTool:
         entries: list[ListEntry] = []
 
         try:
-            root = self.repository_root.resolve()
-            directory = (root / path).resolve()
-
-            if not directory.is_relative_to(root):
-                return ToolFailure(
-                    code="outside_repository",
-                    message="provided directory is outside root boundary",
-                )
+            root, directory = resolve_repository_path(self.repository_root, path)
 
             with scandir(directory) as children:
-                current_directory = directory.resolve()
-                if not current_directory.is_relative_to(root):
-                    return ToolFailure(
-                        code="outside_repository",
-                        message="provided directory is outside root boundary",
-                    )
+                resolve_within_repository(root, directory)
 
                 for count, child in enumerate(children, start=1):
                     # Count hidden entries too: the limit bounds scanning work.
@@ -85,6 +78,11 @@ class ListFilesTool:
                             kind=kind,
                         )
                     )
+        except OutsideRepositoryError:
+            return ToolFailure(
+                code="outside_repository",
+                message="provided directory is outside root boundary",
+            )
         except FileNotFoundError:
             return ToolFailure(
                 code="directory_not_found",

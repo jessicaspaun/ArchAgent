@@ -27,7 +27,7 @@ Exit condition: the owner can explain what V0.1 is, how its major pieces interac
 - [x] **1.4 Code search** — implement lexical repository search; no semantic or vector search.
 - [x] **1.5 Tool registry** — design discovery and invocation without a growing conditional chain.
 - [x] **1.6 Tool testing** — review unit, integration, failure, and security-related coverage.
-- [ ] **1.7 Refactor** — add no behavior; extract only abstractions demonstrated by existing code.
+- [x] **1.7 Refactor** — add no behavior; extract only abstractions demonstrated by existing code.
 
 Exit condition: tools can be discovered and invoked through a tested contract without any model involvement.
 
