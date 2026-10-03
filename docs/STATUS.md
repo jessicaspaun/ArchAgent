@@ -5,16 +5,17 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.4 — Code search (next; design not started)
-- **State:** Block 1.3 is complete; the owner confirmed the full test suite passes; Black, Ruff, and mypy pass
-- **Application code:** `ReadFileTool` returns immutable caller-path and exact-content results, confines resolved paths to the repository, rejects non-regular targets, reads at most 256 KiB plus one byte, and handles size, NUL, UTF-8, missing-path, non-file, and permission failures. `list_files` is complete.
-- **Repository state:** Block 1.2 is committed in `39e490b`. Block 1.3 completion includes file-reading source, tests, and contract documentation.
+- **Block:** 1.5 — Tool registry (next; design not started)
+- **State:** Block 1.4 is complete; all 138 repository tests, Black, Ruff, and mypy pass
+- **Application code:** All three repository tools are implemented. `SearchCodeTool` composes listing and reading with explicit stack traversal, literal matching, immutable match/skip results, a global entry budget, and explicit match truncation. It preserves caller paths and skips discovered symlinks.
+- **Repository state:** Block 1.2 is committed in `39e490b`; Block 1.3 is committed in `abbeccf`. Block 1.4 completion includes code search, tests, and finalized contract documentation.
 
 ## Next action
 
-Begin Block 1.4 by defining the `search_code` contract and test inventory.
-Decide query semantics, search scope, match output, traversal and symlink rules,
-resource limits, and failure behavior before implementation. Keep search lexical.
+Begin Block 1.5 by revisiting the common tool contract and designing fixed
+registry construction, immutable tool definitions, metadata-only discovery,
+request validation, and controlled unknown-tool handling. Address shared
+repository initialization and its retained boundary before model integration.
 
 ## Current constraints
 
@@ -30,6 +31,49 @@ resource limits, and failure behavior before implementation. Keep search lexical
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.4 implementation and completion
+
+- The owner authorized finishing code search without further participation,
+  including remaining routine contract choices, implementation, and verification.
+- Implemented recursive literal, case-sensitive search with hidden entries
+  excluded by default, optional inclusion, and no `.gitignore` interpretation.
+- Added immutable match, skip, and success records. Results use one-based line
+  numbers, preserve line whitespace and caller aliases, and report explicit
+  truncation only after another matching line is discovered.
+- Reused listing and reading tools with an explicit traversal stack. Each listing
+  receives the remaining global entry budget; hidden entries and links count
+  before filtering. Unsupported/oversized files and special objects are reported
+  as skips. Access failures return controlled failures without partial matches.
+- Added 55 search tests. The initial run found a case-insensitive filesystem
+  fixture collision; corrected the filenames. The full suite then passed:
+  `PYTHONPATH=src .venv/bin/pytest -q` reported 138 passed.
+- Black, Ruff, and strict mypy pass. Marked Block 1.4 complete and set Block 1.5
+  registry design as the next action. No registry implementation was added.
+
+### 2026-10-03 — Block 1.4 design begins
+
+- Reviewed existing search requirements: lexical search, read-only repository
+  access, and the common tool contract. Detailed search behavior is still open.
+- Started with query semantics and case handling. No code-search implementation
+  or tests have been added.
+- The owner chose grep-style behavior implemented in Python. Matching lines
+  should be reported with structured file paths, line numbers, and text.
+  Literal case-sensitive matching and recursive directory scope are proposed.
+- The owner agreed to recursive search under a required repository-relative
+  directory path, using `"."` for the repository root. Symlink traversal is next.
+- The owner agreed to skip discovered symlinks. Explicitly requested internal
+  directory symlinks may be followed with caller-path preservation; outside
+  requested targets are rejected. Unsupported/oversized-file handling is next.
+- The owner accepted skipping unsupported and oversized files with explicit
+  paths and reasons, while permission failures or disappearing files stop the
+  search with a controlled failure and no partial matches.
+- The owner chose bounded partial results with `truncated=True` when the match
+  limit is exceeded. Match-cap and traversal-budget values are next.
+- The owner accepted starting limits of 100 matching lines and 1,000 examined
+  entries, with controlled `search_too_large` for traversal-budget overflow.
+- Added proposed exact result fields, visibility rules, and a test inventory for
+  final review. Matching semantics remain explicitly proposed pending review.
 
 ### 2026-10-03 — Block 1.3 completion
 
@@ -282,9 +326,10 @@ resource limits, and failure behavior before implementation. Keep search lexical
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 and 1.3 are complete; the owner
-> confirmed the full test suite passes, and Black, Ruff, and mypy pass. Begin
-> Block 1.4 by defining the lexical `search_code` contract and tests.
+> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.4 are complete.
+> All 138 repository tests, Black, Ruff, and mypy pass. Begin Block 1.5 by
+> revisiting the common tool contract and designing the fixed tool registry,
+> request validation, and shared repository initialization.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

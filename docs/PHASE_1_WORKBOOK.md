@@ -497,3 +497,126 @@ Application configuration rejects negative byte limits with `ValueError` so a
 negative read size cannot permit an unbounded read. A zero-byte limit allows only
 empty files. Request-shape validation remains assigned to the invocation layer
 in Block 1.5.
+
+## 1.4 Code search
+
+### Search direction — agreed
+
+The owner chose grep-style behavior implemented in Python. Search should identify
+matching lines and return structured repository-relative file paths, line
+numbers, and matching text. Calling an external grep executable is not required.
+
+### Search scope — agreed
+
+Search accepts a required repository-relative directory path and recursively
+searches its descendant files. `"."` represents the repository root. The owner
+chose recursive search rather than restricting calls to immediate files.
+
+### Symlink traversal — agreed
+
+Skip file and directory symlinks discovered during recursion, preventing automatic
+cycles, duplicate searches, and traversal through outside targets. A symlink
+directory explicitly supplied as the search path may be followed if its resolved
+target stays inside the repository. Preserve that caller alias in result paths.
+An explicitly requested outside target returns `outside_repository`.
+
+### File-reading and failure policy — agreed
+
+Reuse `read_file` content rules: strict UTF-8, NUL rejection, 256 KiB per file,
+and regular files only. Skip unsupported or oversized files and include their
+repository-relative paths and reasons alongside the matches. Permission failures
+and files disappearing during access fail the search with a controlled failure
+and no partial matches. The owner accepted this policy.
+
+### Match-limit behavior — agreed
+
+When more matching lines exist than the configured result limit, return a bounded
+partial match tuple with `truncated=True`. The result must make the omission
+explicit. Exactly the configured number of matches does not imply truncation;
+discovering another matching line sets the flag and stops further search.
+
+### Resource limits — agreed
+
+Start with a limit of 100 matching lines and 1,000 examined entries across the
+entire recursive search. These are application configuration; tests may inject
+smaller values. Count files, directories, links, and hidden entries encountered
+before filtering toward the entry budget. Discovering the first entry over the
+budget returns `search_too_large` without partial results. The per-file limit
+remains 256 KiB. Discovering a matching line beyond the match cap returns the
+retained matches with `truncated=True`.
+
+### Matching and visibility — implemented defaults
+
+The owner authorized completion without further design questions. Implemented
+the proposed literal, case-sensitive substring matching (`grep -Fn` style).
+Punctuation is literal. One line contributes one match even when it contains
+multiple occurrences. An empty literal query matches each existing line; an
+empty file has no lines. Queries are single literal strings, not lists of
+patterns; a string containing a line ending cannot match one line.
+
+Visibility follows `list_files`: hidden files and directories are excluded by
+default, `include_hidden=True` includes them, and `.gitignore` is not interpreted.
+An explicitly requested hidden directory may be searched. Hidden directories'
+descendants are not examined when the directory is excluded; the hidden entry
+itself still counts toward the work budget.
+
+### Result shape
+
+Use immutable records: `SearchMatch(path, line_number, text)`,
+`SkippedFile(path, code)`, and
+`SearchCodeSuccess(directory, query, matches, skipped, truncated)`. Matches and
+skips are tuples. Line numbers start at one; line text excludes the line ending.
+Return matches in ascending `(path, line_number)` order with deterministic
+traversal so partial results are repeatable. Skipped-file records describe only
+the processed portion if matching results are truncated. Line boundaries use LF,
+CRLF, or CR; other Unicode separator characters stay in the line text. Whitespace
+and the UTF-8 byte-order mark are preserved in matching text.
+
+No matches returns a success with an empty match tuple. Special objects are
+skipped and reported as `not_a_file`; discovered symlinks and hidden entries
+excluded by the visibility policy are outside the searched file set.
+
+### Implementation and failures
+
+An explicit stack traverses directories without Python recursive calls. It
+reuses `ListFilesTool` with the remaining global entry budget and
+`include_hidden=True`, counts returned entries, then applies the visibility and
+symlink rules. Child ordering places directory descendants consistently in
+file-path order, ensuring repeatable partial results. File access reuses
+`ReadFileTool`; no shell command or external search dependency is introduced.
+
+| Condition | Outcome |
+| --- | --- |
+| Match limit exceeded | Success with bounded matches and `truncated=True`. |
+| Global entry budget exceeded | `search_too_large`, no partial results. |
+| Unsupported or oversized file | Skip record with `unsupported_content` or `file_too_large`. |
+| Discovered special object | Skip record with `not_a_file`, without reading it. |
+| Outside requested scope or a target moving outside | `outside_repository`. |
+| Missing requested directory or disappearing descendant directory | `directory_not_found`. |
+| File requested as directory scope | `not_a_directory`. |
+| File disappears during access | `file_not_found`. |
+| Access refused | `permission_denied`, no partial results. |
+| Other controlled listing/reading failure | Propagate the failure, no partial results. |
+| Unexpected defect | Propagate the exception for future harness handling. |
+
+Configuration rejects negative limits. Zero matches permits only an empty
+match tuple and marks truncation when a matching line exists. A zero entry
+budget permits an empty scope. A zero per-file byte limit permits empty files
+and skips nonempty ones. Request-shape validation and repository initialization
+remain assigned to the common invocation/startup layer.
+
+### Test inventory and verification
+
+Tests cover recursive and scoped searches; literal punctuation and
+case sensitivity; one match per line and line numbering; deterministic ordering;
+empty/no-match results; hidden entries and `.gitignore` independence; symlink
+cycles, outside targets, explicit internal aliases, and parent traversal;
+unsupported, oversized, and special-file skips; permission and disappearance
+failures; exact/over-limit entry and match counts; stopping after truncation;
+immutable results; unchanged contents; and unexpected exceptions. A synthetic
+1,100-directory chain verifies the explicit stack without creating a deep real
+filesystem tree. Case-order fixtures use distinct filenames so they work on
+case-insensitive filesystems.
+
+Verification on 2026-10-03: 55 search tests and all 138 repository tests pass.
+Black, Ruff, and strict mypy also pass.
