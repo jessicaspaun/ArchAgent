@@ -620,3 +620,219 @@ case-insensitive filesystems.
 
 Verification on 2026-10-03: 55 search tests and all 138 repository tests pass.
 Black, Ruff, and strict mypy also pass.
+
+## 1.5 Tool registry
+
+### Entry contents and argument validation — agreed
+
+Each entry retains its name, description, immutable argument definitions, and
+the configured Python callable. Definitions describe arguments; actual values
+arrive with each request. Discovery exposes metadata without exposing the
+callable or its bound repository root.
+
+The owner chose strict argument typing. Wrong types are rejected without
+coercion; for example, `path=42` is not converted into a string. Missing required
+and unexpected arguments are rejected before invocation. Invalid requests never
+reach the callable. Detailed validation errors and construction mechanics are
+still being designed.
+
+### Construction input — agreed
+
+Accept a tuple of tool definitions so duplicate names remain visible before the
+lookup mapping is built. Check for duplicates and reject them during construction;
+never silently overwrite a definition. Tuple membership is immutable, and the
+definitions and nested argument metadata must also be immutable under the common
+contract. The internal name lookup remains fixed for the run.
+
+### Validation failures — agreed
+
+For a known tool, an invalid argument request returns the shared `ToolFailure`
+with `code="invalid_arguments"` and a message describing the first validation
+error. No coercion or callable execution occurs. The owner chose first-error
+reporting rather than collecting all errors. Unknown tool names continue to
+return `unknown_tool` under the common contract.
+
+### Path-specific value constraints — agreed
+
+Apply the nonempty rule specifically to repository-path arguments, not all
+strings. Paths must also be repository-relative under the existing common
+contract. An empty `search_code` query remains valid and matches each existing
+line. These constraints belong to the relevant argument definitions; existence,
+file type, permissions, and resolved containment remain tool responsibilities.
+
+### Repository setup boundary — agreed
+
+Keep repository initialization in a separate setup function. It validates the
+selected directory, rejects overlap with the explicitly supplied protected
+ArchAgent source root, resolves and retains the target boundary, constructs the
+three tools with that boundary, and builds the registry from their definitions.
+The generic registry owns metadata, request validation, and callable invocation.
+Startup failure representation remains to be selected.
+
+### Initialization failures — agreed
+
+Repository setup and registry construction raise a dedicated initialization
+exception when startup cannot produce a usable registry. The exception carries
+a stable machine-readable code and safe message. A future CLI or harness will
+catch it, explain the problem, and stop startup. Runtime tool requests continue
+to return `ToolFailure`; initialization failures are not ordinary tool results.
+
+The agreed startup codes are:
+
+| Code | Meaning |
+| --- | --- |
+| `target_not_found` | The selected repository target does not exist. |
+| `target_not_a_directory` | The selected target exists but is not a directory. |
+| `target_overlaps_archagent` | The resolved target tree overlaps the protected ArchAgent source tree. |
+| `duplicate_tool_name` | Registry construction received more than one definition with the same name. |
+| `invalid_tool_definition` | A tool or argument definition is internally inconsistent or unsupported. |
+| `target_permission_denied` | The operating system refused access while resolving or validating the target. |
+| `invalid_protected_source_root` | The configured protected source root cannot be resolved as a valid directory. |
+
+Other unexpected setup defects propagate rather than being mislabeled. A
+permission problem specific to validating the protected source root is reported
+as `invalid_protected_source_root`; target access uses
+`target_permission_denied`.
+
+### Optional arguments and defaults — agreed
+
+The registry fills omitted optional arguments from immutable argument metadata
+before invoking the callable. For example, omitting `include_hidden` invokes the
+tool with `include_hidden=False`. The definition must distinguish an argument
+with no default from one whose actual default is `False` or `None`. Supplied
+values are strictly validated before defaults are added, and the final keyword
+argument mapping is what reaches the callable.
+
+### Discovery — agreed
+
+Discovery returns immutable, serializable metadata ordered alphabetically by
+tool name, independent of construction order. Each discovered tool exposes its
+name, description, argument definitions, and extra-argument policy. Argument
+metadata includes name, public type name, required flag, description, and a
+default only when one exists. Discovery excludes callables, repository roots,
+and internal validation functions.
+
+### Unknown tools — agreed
+
+An unknown name returns `ToolFailure(code="unknown_tool", ...)` without invoking
+any callable. The safe message includes the requested name and the alphabetically
+ordered available tool names so the caller can recover. Tool names are public
+discovery metadata; repository paths and implementation details remain absent.
+
+### Exact type matching — agreed
+
+V0.1 argument definitions use exact built-in type matching rather than
+`isinstance`. A Boolean is accepted only when `type(value) is bool`; an integer
+only when `type(value) is int`; and a string only when `type(value) is str`.
+This prevents Python's `bool` subclass relationship with `int` from weakening
+strict validation. V0.1 tool-call arguments require only strings and Booleans.
+
+### V0.1 tool metadata — agreed
+
+- `list_files`: lists immediate entries in a repository directory. Arguments are
+  required nonempty repository-relative string `path` and optional Boolean
+  `include_hidden` with default `False`.
+- `read_file`: reads the exact supported text of one repository file. Its sole
+  argument is required nonempty repository-relative string `path`.
+- `search_code`: recursively performs literal, case-sensitive line search under
+  a repository directory. Arguments are required nonempty repository-relative
+  string `path`, required string `query` whose empty value is valid, and optional
+  Boolean `include_hidden` with default `False`.
+
+All three reject extra arguments. Their descriptions state their operational
+behavior without exposing repository configuration or implementation details.
+
+### Protected-source overlap — agreed
+
+Repository setup resolves both the selected target and the explicitly supplied
+protected ArchAgent source root. It rejects overlap in either direction: the
+target cannot equal or sit inside the protected tree, and it cannot be a parent
+containing the protected tree. A separate non-overlapping clone is allowed even
+when its contents are identical. The check uses resolved filesystem locations,
+not directory names.
+
+### Fixed lookup and typed invocation adapters — agreed
+
+Build the private name lookup once and expose it internally through a read-only
+mapping. The registry, tool definitions, and argument definitions are frozen.
+
+Use one uniform typed adapter signature rather than storing differently shaped
+tool methods as `Callable[..., ToolResult]`. Each tool-specific adapter accepts
+the validated argument mapping, extracts values for its known definition, and
+calls the bound tool method with explicit arguments. The registry invokes only
+this common adapter shape. This keeps dynamic request handling at a narrow
+boundary and allows mypy to check the tool-specific calls.
+
+The registry wraps the validated, default-filled argument dictionary in a
+read-only mapping before passing it to an adapter. Adapters may inspect the
+effective request but cannot add, remove, or replace its values after validation.
+
+### Registry and setup test inventory — accepted and verified
+
+Construction and immutability:
+
+1. Tuple construction accepts unique definitions and rejects duplicate names
+   with `duplicate_tool_name` before building the lookup.
+2. Registry, definitions, nested argument definitions, construction tuple, and
+   private lookup cannot be changed through public interfaces.
+3. Adapters receive a read-only validated mapping.
+4. Invalid definition combinations are rejected during initialization, including
+   duplicate argument names, required arguments with defaults, optional arguments
+   without defaults, defaults of the wrong exact type, and defaults that violate
+   value constraints.
+
+Discovery:
+
+1. Definitions are returned alphabetically regardless of construction order.
+2. Metadata is immutable and serializable and includes defaults only when present.
+3. Discovery exposes no callable, bound object, repository root, or validator.
+
+Invocation and validation:
+
+1. Each of the three real tools can be invoked through the registry and returns
+   its operation-specific result.
+2. Optional defaults are filled and supplied explicitly to adapters.
+3. Missing required, wrong exact type, empty/absolute path, and extra arguments
+   return the first `invalid_arguments` error without invoking the adapter.
+4. Empty search queries remain valid; `1` is not Boolean and `True` is not an
+   integer if integer metadata is exercised.
+5. Unknown names return `unknown_tool`, list available names alphabetically, and
+   invoke nothing.
+6. Controlled tool failures pass through unchanged; unexpected adapter defects
+   propagate to the future harness boundary.
+
+Repository setup:
+
+1. An existing directory is resolved once and all three tools share that retained
+   boundary even if construction used a symlink alias.
+2. Missing and non-directory targets raise their agreed initialization codes.
+3. Targets equal to, inside, or containing the protected source root raise
+   `target_overlaps_archagent`; a separate clone path succeeds.
+4. Setup produces exactly the three agreed public definitions and no mutating
+   filesystem capability.
+5. Safe initialization messages expose no machine-specific absolute path.
+
+The owner accepted this inventory before implementation, including the permission
+and protected-root policy and `invalid_tool_definition` code.
+
+### Implementation notes
+
+`ToolRegistry` validates and sorts the construction tuple, builds one private
+read-only name mapping, exposes immutable metadata through `discover()`, and
+validates and fills defaults through `invoke()`. It reports the first request
+error and passes a read-only effective argument mapping to the selected adapter.
+
+`create_repository_registry()` strictly resolves and validates the protected
+source root and selected target, rejects symmetric overlap, creates all three
+tools with the resolved target, defines their public metadata, and returns the
+fixed registry. Tool-specific adapters perform final typed extraction and call
+their bound methods. Known startup failures become `InitializationError`;
+unexpected defects propagate.
+
+Definition validation covers duplicate names and arguments, required/default
+consistency, exact default types, value constraints, constraint/type
+compatibility, and duplicate constraints. Runtime path validation rejects empty
+and absolute paths; resolved containment remains with repository tools.
+
+Verification on 2026-10-03: all 40 registry/setup tests and all 178 repository
+tests pass. Black, Ruff, and strict mypy also pass.

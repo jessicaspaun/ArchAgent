@@ -5,17 +5,17 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 1 — Tool system, without an LLM
-- **Block:** 1.5 — Tool registry (next; design not started)
-- **State:** Block 1.4 is complete; all 138 repository tests, Black, Ruff, and mypy pass
-- **Application code:** All three repository tools are implemented. `SearchCodeTool` composes listing and reading with explicit stack traversal, literal matching, immutable match/skip results, a global entry budget, and explicit match truncation. It preserves caller paths and skips discovered symlinks.
-- **Repository state:** Block 1.2 is committed in `39e490b`; Block 1.3 is committed in `abbeccf`. Block 1.4 completion includes code search, tests, and finalized contract documentation.
+- **Block:** 1.6 — Tool testing (next; review not started)
+- **State:** Block 1.5 is complete; all 178 repository tests, Black, Ruff, and mypy pass
+- **Application code:** The fixed `ToolRegistry` supports immutable metadata discovery, strict request validation, default filling, unknown-tool recovery, and typed invocation adapters. Separate repository setup validates and retains the resolved boundary, rejects protected-source overlap, and binds all three repository tools.
+- **Repository state:** Blocks 1.2–1.4 are committed. Block 1.5 completion includes registry/setup source, 40 tests, and finalized contract documentation.
 
 ## Next action
 
-Begin Block 1.5 by revisiting the common tool contract and designing fixed
-registry construction, immutable tool definitions, metadata-only discovery,
-request validation, and controlled unknown-tool handling. Address shared
-repository initialization and its retained boundary before model integration.
+Begin Block 1.6 by reviewing the existing 178 tests as a portfolio: classify
+unit, contract, integration, failure, and security coverage; identify meaningful
+gaps and unnecessary duplication; use coverage only to locate unexercised code.
+Keep code tests distinct from later agent evaluations.
 
 ## Current constraints
 
@@ -31,6 +31,76 @@ repository initialization and its retained boundary before model integration.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 1.5 implementation and completion
+
+- Collaboratively designed registry entries, exact-type validation, tuple
+  construction, first-error failures, path constraints, defaults, alphabetical
+  discovery, unknown-tool recovery, typed adapters, read-only arguments,
+  repository setup, overlap rules, and initialization errors.
+- Added `ToolRegistry`, immutable definition/discovery records, a read-only
+  lookup, validation and default filling, and typed invocation adapters.
+- Added separate repository setup that strictly resolves roots, rejects symmetric
+  protected-source overlap, binds all three tools, and constructs their agreed
+  public definitions.
+- Added 40 registry/setup tests covering definition consistency, immutability,
+  discovery privacy, strict validation, defaults, all three real invocations,
+  failures, retained resolved roots, overlap, and safe startup errors.
+- Focused tests passed on the first behavior run. Mypy exposed annotation gaps
+  in metadata construction and test helpers; those were tightened. Review then
+  improved strict startup resolution and rejected incompatible or duplicate
+  constraints.
+- Final verification: `PYTHONPATH=src .venv/bin/pytest -q` reported 178 passed.
+  Black, Ruff, and strict mypy pass. Marked Block 1.5 complete.
+
+### 2026-10-03 — Block 1.5 collaborative design begins
+
+- The owner requested working through the registry together after code-search
+  completion. Reviewed existing agreements: fixed name-to-definition mapping,
+  immutable metadata, metadata-only discovery, validation before invocation,
+  duplicate-name rejection, and controlled unknown-tool handling.
+- Begin with the owner's proposed entry structure and request flow. No registry
+  implementation or tests have been added.
+- The owner identified name, description, and path argument metadata; clarified
+  that entries also retain the callable and that argument definitions are separate
+  from per-request values.
+- The owner chose strict validation: incorrect argument types are rejected
+  without coercion, and invalid requests must never invoke the callable.
+- The owner chose exact built-in type matching so Booleans and integers cannot
+  be accepted for one another under Python's subclass rules.
+- The owner accepted public metadata for all three tools, including nonempty
+  path constraints, empty-query support, optional hidden flags, and no extras.
+- The owner accepted symmetric resolved-path overlap rejection: a target cannot
+  equal, contain, or sit inside the protected ArchAgent source tree. Separate
+  non-overlapping clones remain allowed.
+- After reviewing `Callable`, the owner chose uniform typed adapters. Each
+  adapter accepts validated arguments and makes an explicitly typed tool call;
+  the registry avoids a broad `Callable[..., ToolResult]` boundary.
+- The owner chose a read-only validated/default-filled argument mapping for
+  adapters. Added the proposed registry and repository-setup test inventory.
+- The owner accepted `target_permission_denied` and
+  `invalid_protected_source_root`; unexpected setup defects propagate.
+- The owner chose `invalid_tool_definition` for inconsistent or unsupported
+  registry metadata. The contract is now ready for verification-plan review.
+- The owner proposed tuple input for construction so duplicate tool definitions
+  remain visible before the name lookup mapping is created.
+- The owner chose first-error validation reporting using `invalid_arguments` and
+  a safe message in `ToolFailure`. Unknown names retain `unknown_tool`.
+- The owner chose nonempty constraints specifically for path arguments, keeping
+  empty search queries valid. Repository-relative paths remain required by the
+  common contract; filesystem safety checks remain with the tools.
+- The owner chose a separate repository setup function to validate the target,
+  retain its resolved root, bind the tools, and build the generic registry.
+- The owner chose a dedicated initialization exception carrying a stable code
+  and safe message. Runtime request failures remain `ToolFailure` results.
+- The owner accepted `target_not_found`, `target_not_a_directory`,
+  `target_overlaps_archagent`, and `duplicate_tool_name` as startup codes.
+- The owner chose registry-owned default filling before invocation. Argument
+  metadata must distinguish no default from values such as `False` or `None`.
+- The owner chose alphabetical discovery with immutable serializable metadata.
+  Callables, repository roots, and internal validation functions stay private.
+- The owner chose an `unknown_tool` message containing the requested name and
+  alphabetically ordered available names, without invoking a callable.
 
 ### 2026-10-03 — Block 1.4 implementation and completion
 
@@ -326,10 +396,10 @@ repository initialization and its retained boundary before model integration.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.4 are complete.
-> All 138 repository tests, Black, Ruff, and mypy pass. Begin Block 1.5 by
-> revisiting the common tool contract and designing the fixed tool registry,
-> request validation, and shared repository initialization.
+> Read `AGENTS.md` and `docs/STATUS.md`. Blocks 1.2 through 1.5 are complete.
+> All 178 repository tests, Black, Ruff, and mypy pass. Begin Block 1.6 by
+> reviewing and classifying the test portfolio, then identify meaningful gaps
+> and duplication before adding or changing tests.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.
