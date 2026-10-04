@@ -68,3 +68,51 @@ blocks.
 Final verification on 2026-10-03: all 18 focused model-boundary cases and all
 208 repository tests pass. Black, Ruff, and strict mypy also pass. Block 2.1 is
 complete.
+
+## Block 2.2 — First model interaction
+
+### Provider and transport
+
+The first concrete adapter uses the locally installed `qwen2.5:7b` model through
+Ollama. ArchAgent calls Ollama's local `/api/chat` HTTP endpoint directly with
+Python's standard library rather than adding the Ollama package. This keeps the
+request body, response body, timeout, and translation mechanics visible.
+
+The first interaction is synchronous, text-only, and non-streaming. Adapter
+configuration defaults to:
+
+- base URL `http://127.0.0.1:11434`;
+- model `qwen2.5:7b`; and
+- a 60-second timeout.
+
+The adapter maps instructions to a system message and the question to a user
+message. Context and tool definitions return a non-retryable
+`unsupported_request` failure before network access because Block 2.2 does not
+yet translate those fields. Silently omitting them could produce an answer that
+appears grounded without receiving required evidence or capabilities.
+
+### Observed raw response
+
+A direct request to the local endpoint returned assistant text, model name,
+completion status, stop reason, input and output token counts, and Ollama timing
+fields. The first response contained `"ready"`, 25 input tokens, 2 output
+tokens, and stop reason `"stop"`.
+
+Because the live response demonstrated a need for common response data,
+`TextResponse` now carries immutable `ResponseMetadata` with model name, input
+tokens, output tokens, and stop reason. Provider-specific timing fields remain
+outside the core interface; application-level latency will be addressed with
+tracing.
+
+### Verification plan and current result
+
+Deterministic tests replace the network function and verify the exact endpoint,
+method, header, JSON body, timeout, configured values, response translation,
+metadata validation, and rejection of unsupported requests before network
+access. HTTP, connection, timeout, and malformed-response ownership remain
+explicit exercises for Block 2.4.
+
+The adapter was also invoked once against the installed local model and returned
+`TextResponse(text="ready", metadata=...)` with the expected observed values.
+Final verification on 2026-10-03: all 220 tests pass. Black, Ruff, and strict
+mypy also pass. Block 2.2 is complete.

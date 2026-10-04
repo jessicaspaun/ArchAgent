@@ -5,16 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 2 — Model boundary and structured output (next)
-- **Block:** 2.2 — First model interaction (next; design not started)
-- **State:** Block 2.1 is complete. The provider-independent model boundary passes all 208 tests, Black, Ruff, and strict mypy.
-- **Application code:** A synchronous structural `Model` protocol now accepts immutable requests containing separate instructions, question, typed tool history, and metadata-only tool definitions. It returns exactly one text response, tool request, or controlled model failure.
-- **Repository state:** Phase 1 is committed. Block 2.1 completion includes the model types, protocol, 18 focused cases, and Phase 2 workbook.
+- **Block:** 2.3 — Structured output (next; design not started)
+- **State:** Block 2.2 is complete. The direct Ollama adapter completed a live text-only interaction with local `qwen2.5:7b`; all 220 tests, Black, Ruff, and strict mypy pass.
+- **Application code:** `OllamaModel` translates text-only requests to synchronous, non-streaming `/api/chat` calls and translates replies into `TextResponse` with common model, token, and stop metadata. Context or tools are rejected before network access until later blocks implement them.
+- **Repository state:** Block 2.1 is committed. Block 2.2 completion includes the direct Ollama adapter, response metadata, 12 additional cases, and observed interaction documentation.
 
 ## Next action
 
-Begin Block 2.2 by choosing one low-level provider SDK and making the smallest
-real text-only request through a concrete adapter. Inspect the raw provider
-request and response before adding structured tool requests or retries.
+Begin Block 2.3 by designing structured tool-request translation for the Ollama
+chat API. Preserve the rule that a model requests one action and never executes
+a tool itself.
 
 ## Current constraints
 
@@ -30,6 +30,26 @@ request and response before adding structured tool requests or retries.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 2.2 direct Ollama interaction
+
+- Verified the local Ollama service and installed model name `qwen2.5:7b`.
+- Chose direct HTTP through the standard library and `/api/chat` so the provider
+  request and response mechanics remain visible and the endpoint can later
+  support structured tool requests.
+- Sent and inspected a minimal raw request. The model returned `"ready"` plus
+  model identity, token counts, stop reason, and provider timing fields.
+- Added immutable provider-independent response metadata for model name, input
+  tokens, output tokens, and stop reason. Provider-specific timing stays outside
+  the core interface.
+- Added configurable `OllamaModel` with local defaults, a 60-second timeout,
+  non-streaming text translation, and controlled rejection of context or tool
+  definitions before contacting Ollama.
+- Added 12 deterministic cases for metadata invariants, exact HTTP translation,
+  custom configuration, unsupported requests, and configuration invariants.
+- Verified the adapter itself against local `qwen2.5:7b`; it returned the
+  expected `TextResponse`. Final verification: the owner reported all 220 tests
+  pass. Black, Ruff, and strict mypy also pass. Marked Block 2.2 complete.
 
 ### 2026-10-03 — Block 2.1 model interface design and implementation
 
@@ -460,9 +480,9 @@ request and response before adding structured tool requests or retries.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.1 is complete: all 208 tests,
-> Black, Ruff, and mypy pass. Begin Block 2.2 by selecting one low-level model
-> SDK and making the smallest real text-only interaction through an adapter.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.2 is complete: all 220 tests,
+> Black, Ruff, and mypy pass. Begin Block 2.3 by designing structured tool-call
+> translation for Ollama while keeping execution in the future harness.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

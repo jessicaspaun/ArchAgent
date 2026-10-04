@@ -9,6 +9,7 @@ from archagent.model import (
     ModelFailure,
     ModelRequest,
     ModelResult,
+    ResponseMetadata,
     TextResponse,
     ToolInteraction,
     ToolRequest,
@@ -157,7 +158,10 @@ def test_context_accepts_successful_and_failed_tool_results(
 
 class TextModel:
     def generate(self, request: ModelRequest) -> ModelResult:
-        return TextResponse(f"Answer to: {request.question}")
+        return TextResponse(
+            f"Answer to: {request.question}",
+            ResponseMetadata("fake", 1, 2, "stop"),
+        )
 
 
 class RequestingModel:
@@ -172,7 +176,13 @@ def generate(model: Model, request: ModelRequest) -> ModelResult:
 @pytest.mark.parametrize(
     ("model", "expected"),
     [
-        (TextModel(), TextResponse("Answer to: Question")),
+        (
+            TextModel(),
+            TextResponse(
+                "Answer to: Question",
+                ResponseMetadata("fake", 1, 2, "stop"),
+            ),
+        ),
         (RequestingModel(), make_tool_request()),
     ],
 )
@@ -194,6 +204,26 @@ def test_model_failure_is_an_immutable_controlled_result() -> None:
     assert failure.retryable is True
     with pytest.raises(FrozenInstanceError):
         failure.retryable = False  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    ("model", "input_tokens", "output_tokens", "stop_reason", "message"),
+    [
+        ("", 1, 2, "stop", "Response model must be nonempty"),
+        ("model", -1, 2, "stop", "Response token counts must be non-negative"),
+        ("model", 1, -2, "stop", "Response token counts must be non-negative"),
+        ("model", 1, 2, "", "Response stop reason must be nonempty"),
+    ],
+)
+def test_response_metadata_rejects_invalid_values(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    stop_reason: str,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ResponseMetadata(model, input_tokens, output_tokens, stop_reason)
 
 
 def test_unexpected_model_exception_propagates() -> None:
