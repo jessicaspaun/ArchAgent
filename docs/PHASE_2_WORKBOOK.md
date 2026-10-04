@@ -230,7 +230,7 @@ model still crosses the real HTTP boundary and returns a valid nonempty
 answer quality. The test is skipped by default and is enabled explicitly:
 
 ```bash
-ARCHAGENT_RUN_LIVE_MODEL_TESTS=1 PYTHONPATH=src .venv/bin/pytest \
+ARCHAGENT_RUN_LIVE_MODEL_TESTS=1 PYTHONPATH=src uv run pytest \
   -m live_model -q
 ```
 

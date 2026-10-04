@@ -1,20 +1,20 @@
 # Project Status
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## Current position
 
-- **Phase:** 3 — First agent loop (next)
-- **Block:** 3.1 — Define an agent (next; design not started)
-- **State:** Phase 2 is complete. The deterministic suite reports 242 passed and one skipped live-model check; the opt-in local Ollama check passes separately. Black, Ruff, and strict mypy pass.
-- **Application code:** Text responses now require nonempty content. The deterministic default suite uses fake HTTP behavior; one marked live integration check is skipped unless explicitly enabled.
-- **Repository state:** Blocks 2.1–2.4 are committed. Block 2.5 completion includes response-contract hardening, the deterministic/live testing policy, marker configuration, and Phase 2 documentation.
+- **Phase:** 3 — First agent loop
+- **Block:** 3.3 — Multiple tool calls (next; design not started)
+- **State:** Block 3.2 is complete. The deterministic suite reports 258 passed and one skipped live-model check. Black, Ruff, and strict mypy pass.
+- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. Known model failures become controlled agent failures, retryable model failures share a run-wide budget, and unexpected exceptions propagate.
+- **Repository state:** Blocks through 3.2 are committed.
 
 ## Next action
 
-Begin Block 3.1 by defining what makes ArchAgent an agent rather than a chatbot.
-Assign responsibilities among the model, deterministic harness, registry, and
-tools before implementing the first loop.
+Begin Block 3.3 by defining how multiple sequential tool calls change the loop,
+termination contract, run limits, and deterministic test strategy. Do not
+implement the generalized loop until those choices are understood.
 
 ## Current constraints
 
@@ -30,6 +30,49 @@ tools before implementing the first loop.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-04 — Block 3.2 single-tool design and implementation
+
+- Chose a reusable harness configured with a model, allowed registry, agent
+  instructions, and model retry limit. Every run owns fresh question, context,
+  retry-budget, and outcome state.
+- Kept public outcomes minimal: `AgentSuccess(answer)` or
+  `AgentFailure(code, message)`. Chain-of-thought, repository paths, and partial
+  traces are not public result fields.
+- Allowed immediate text answers. Otherwise the harness executes at most one
+  registry-mediated tool proposal, returns its structured success or failure to
+  the model as context, and requires the next response to be a final answer.
+- A second tool proposal returns `tool_call_limit_reached` without execution.
+  Multiple sequential tool calls remain the deliberate subject of Block 3.3.
+- Added two run-wide retries for retryable model failures. Exhaustion returns
+  `model_retry_exhausted`; non-retryable failures retain their safe provider-
+  independent code and message; unexpected exceptions propagate.
+- Added 16 deterministic cases covering results and configuration, both success
+  paths, tool observations, call limits, model failure and retry paths, fresh
+  run state, and unexpected exceptions.
+- The owner reported that the full deterministic suite passes with 258 tests and
+  one skipped opt-in live-model check. Black, Ruff, and strict mypy pass. Marked
+  Block 3.2 complete.
+- Corrected the canonical owner test command to
+  `PYTHONPATH=src uv run pytest ...` in the collaborator agreement and workflow
+  documents; direct `.venv/bin/pytest` handoffs are no longer used.
+
+### 2026-10-04 — Block 3.1 agent definition
+
+- Revisited the Phase 0 agent, model, harness, and tool definitions against the
+  boundaries actually implemented in Phases 1 and 2.
+- Defined the agent as the complete investigating system, not the model alone.
+  The probabilistic model proposes actions; the deterministic harness owns the
+  loop, in-memory run state, registry-mediated execution, recovery policy, and
+  termination.
+- Confirmed that registry and ordinary tool failures return to the model as
+  structured observations within deterministic limits. Intermediate failures
+  do not go directly to the user. Unexpected programming defects propagate.
+- Defined the harness contract as a bounded investigation returning a nonempty
+  answer or controlled failure and outlined deterministic fake-model tests.
+  Real-model investigation quality remains an agent-evaluation concern.
+- Added the Phase 3 workbook and marked Block 3.1 complete. No application code
+  or tests changed.
 
 ### 2026-10-03 — Block 2.5 model-test portfolio review
 

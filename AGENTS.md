@@ -37,6 +37,8 @@ For design and implementation work:
 - The owner normally runs pytest. Prepare the implementation, run Black, Ruff,
   and strict mypy, then provide the exact pytest command and expected result.
   Do not run pytest unless the owner asks.
+- Use `PYTHONPATH=src uv run pytest ...` for pytest commands. Do not substitute
+  direct `.venv/bin/pytest` invocation. The executable is `pytest` (singular).
 - After the owner reports that tests pass, update the roadmap, workbook, status,
   and session log. Run Black and Ruff again before committing, then create one
   focused commit for the completed block.
