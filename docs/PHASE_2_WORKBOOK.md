@@ -202,3 +202,43 @@ fields, invalid token counts, safe messages, response closure, one-attempt
 behavior, and unexpected exception propagation. Black, Ruff, and strict mypy
 pass. Final verification on 2026-10-03: all 241 tests pass. Block 2.4 is
 complete.
+
+## Block 2.5 — Model tests
+
+### Portfolio review
+
+The model test portfolio began with 51 deterministic cases: 22 cover the
+provider-independent interface and capability boundary, and 29 cover Ollama
+request translation, schema translation, configuration, response translation,
+malformed output, and dependency failures. Repeated cases exercise distinct
+boundary stages and do not justify consolidation.
+
+The review found one meaningful contract gap: a response with no tool call and
+empty text represented no action but was accepted as `TextResponse`. Text
+responses now require nonempty content; the Ollama adapter translates a
+violation into its existing retryable `invalid_response` result.
+
+### Deterministic tests and live checks
+
+The default suite must remain deterministic and must not require Ollama, a
+particular model, network access, or probabilistic wording. It uses fake HTTP
+responses to verify ArchAgent's code and contracts.
+
+One optional `live_model` smoke test checks that the configured local Ollama
+model still crosses the real HTTP boundary and returns a valid nonempty
+`TextResponse` with common metadata. It does not assert exact wording or measure
+answer quality. The test is skipped by default and is enabled explicitly:
+
+```bash
+ARCHAGENT_RUN_LIVE_MODEL_TESTS=1 PYTHONPATH=src .venv/bin/pytest \
+  -m live_model -q
+```
+
+This is a live integration check, not an agent evaluation. Model selection,
+tool-choice quality, groundedness, and investigation quality remain future
+evaluation concerns.
+
+Final verification on 2026-10-03: the deterministic default suite reports 242
+passed and one skipped live-model check. The separately enabled live check
+passes with 242 tests deselected. Black, Ruff, and strict mypy also pass. Block
+2.5 and Phase 2 are complete.

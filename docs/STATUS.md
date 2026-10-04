@@ -4,17 +4,17 @@ Last updated: 2026-10-03
 
 ## Current position
 
-- **Phase:** 2 — Model boundary and structured output (next)
-- **Block:** 2.5 — Model tests (next; review not started)
-- **State:** Block 2.4 is complete. Expected Ollama HTTP, connection, timeout, and invalid-response failures have safe provider-independent results; all 241 tests, Black, Ruff, and strict mypy pass.
-- **Application code:** `OllamaModel` makes one request, closes response resources, classifies understood failures with retry guidance, and lets unexpected defects propagate. Retry execution remains assigned to the future harness.
-- **Repository state:** Block 2.3 is committed. Block 2.4 completion includes failure translation, 15 focused cases, and ownership documentation.
+- **Phase:** 3 — First agent loop (next)
+- **Block:** 3.1 — Define an agent (next; design not started)
+- **State:** Phase 2 is complete. The deterministic suite reports 242 passed and one skipped live-model check; the opt-in local Ollama check passes separately. Black, Ruff, and strict mypy pass.
+- **Application code:** Text responses now require nonempty content. The deterministic default suite uses fake HTTP behavior; one marked live integration check is skipped unless explicitly enabled.
+- **Repository state:** Blocks 2.1–2.4 are committed. Block 2.5 completion includes response-contract hardening, the deterministic/live testing policy, marker configuration, and Phase 2 documentation.
 
 ## Next action
 
-Begin Block 2.5 by reviewing deterministic model-boundary coverage, identifying
-meaningful gaps and duplication, and defining the narrow role of optional live
-Ollama integration checks.
+Begin Block 3.1 by defining what makes ArchAgent an agent rather than a chatbot.
+Assign responsibilities among the model, deterministic harness, registry, and
+tools before implementing the first loop.
 
 ## Current constraints
 
@@ -30,6 +30,22 @@ Ollama integration checks.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 2.5 model-test portfolio review
+
+- Reviewed 22 provider-independent and 29 Ollama-specific deterministic cases.
+  The cases cover distinct contracts and stages; no duplication justified removal.
+- Identified empty text without a tool call as an invalid no-action response.
+  Added a nonempty `TextResponse` invariant and focused regression case.
+- Kept the default suite independent of Ollama and probabilistic model behavior.
+- Added one explicitly marked live integration smoke test, skipped unless
+  `ARCHAGENT_RUN_LIVE_MODEL_TESTS=1` is set. It checks only boundary shape and
+  metadata, not wording or model quality.
+- Recorded that the live smoke test is an integration check rather than an agent
+  evaluation. Final verification: the default suite reported 242 passed and one
+  skipped live check; the separately enabled live check passed with 242 tests
+  deselected. Black, Ruff, and strict mypy pass. Marked Block 2.5 and Phase 2
+  complete.
 
 ### 2026-10-03 — Block 2.4 provider failure handling
 
@@ -517,9 +533,10 @@ Ollama integration checks.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.4 is complete: all 241 tests,
-> Black, Ruff, and mypy pass. Begin Block 2.5 by reviewing deterministic model
-> tests and deciding how optional live Ollama integration checks should run.
+> Read `AGENTS.md` and `docs/STATUS.md`. Phase 2 is complete: the default suite
+> reports 242 passed and one skipped live test; the opt-in Ollama check passes.
+> Black, Ruff, and mypy pass. Begin Block 3.1 by defining the agent and assigning
+> responsibilities among the model, harness, registry, and tools.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

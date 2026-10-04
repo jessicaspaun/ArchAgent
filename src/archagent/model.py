@@ -81,6 +81,10 @@ class TextResponse:
     text: str
     metadata: ResponseMetadata
 
+    def __post_init__(self) -> None:
+        if not self.text:
+            raise ValueError("Text response must be nonempty")
+
 
 @dataclass(frozen=True)
 class ModelFailure:

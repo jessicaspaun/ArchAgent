@@ -36,6 +36,9 @@ pretty = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--strict-config", "--strict-markers", "-ra"]
+markers = [
+    "live_model: opt-in integration checks that call a locally running model",
+]
 
 [dependency-groups]
 dev = [

@@ -237,6 +237,11 @@ def test_response_metadata_rejects_invalid_values(
         ResponseMetadata(model, input_tokens, output_tokens, stop_reason)
 
 
+def test_text_response_rejects_empty_text() -> None:
+    with pytest.raises(ValueError, match="Text response must be nonempty"):
+        TextResponse("", ResponseMetadata("model", 1, 0, "stop"))
+
+
 def test_unexpected_model_exception_propagates() -> None:
     class BrokenModel:
         def generate(self, request: ModelRequest) -> ModelResult:
