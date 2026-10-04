@@ -119,6 +119,11 @@ PYTHONPATH=src uv run pytest tests/test_agent.py -q
 PYTHONPATH=src uv run pytest -q
 ```
 
-Final verification on 2026-10-04: the owner reported 258 passed and one skipped
-opt-in live-model check. Black, Ruff, and strict mypy pass. Block 3.2 is
-complete.
+Verification on 2026-10-04: the owner reported 258 passed and one skipped opt-in
+live-model check. Black, Ruff, and strict mypy pass. A subsequent code walkthrough
+found an integration gap: `OllamaModel.generate()` still returns
+`unsupported_request` whenever `ModelRequest.context` is nonempty. The harness's
+second request therefore works with the scripted model but not with the real
+adapter. Block 3.2 remains in progress until completed `ToolInteraction` values
+are translated into Ollama messages and covered by adapter and harness/adapter
+integration tests.

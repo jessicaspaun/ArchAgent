@@ -5,16 +5,17 @@ Last updated: 2026-10-04
 ## Current position
 
 - **Phase:** 3 — First agent loop
-- **Block:** 3.3 — Multiple tool calls (next; design not started)
-- **State:** Block 3.2 is complete. The deterministic suite reports 258 passed and one skipped live-model check. Black, Ruff, and strict mypy pass.
+- **Block:** 3.2 — Single tool call (reopened; integration gap found)
+- **State:** The deterministic harness and its tests are implemented, and the suite reports 258 passed with one skipped live-model check. A walkthrough found that `OllamaModel` still rejects nonempty tool context, so the real second model call cannot yet receive a tool observation. Black, Ruff, and strict mypy pass.
 - **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. Known model failures become controlled agent failures, retryable model failures share a run-wide budget, and unexpected exceptions propagate.
-- **Repository state:** Blocks through 3.2 are committed.
+- **Repository state:** Commit `7c8f5be` contains the harness and passing isolated tests but records Block 3.2 as complete prematurely. The context-translation gap is documented in the current working tree.
 
 ## Next action
 
-Begin Block 3.3 by defining how multiple sequential tool calls change the loop,
-termination contract, run limits, and deterministic test strategy. Do not
-implement the generalized loop until those choices are understood.
+Continue Block 3.2 by defining how one completed `ToolInteraction` translates
+into Ollama's assistant tool-call and tool-result message sequence. Add focused
+adapter tests and a deterministic harness/adapter integration test before
+re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
 
 ## Current constraints
 
@@ -56,6 +57,12 @@ implement the generalized loop until those choices are understood.
 - Corrected the canonical owner test command to
   `PYTHONPATH=src uv run pytest ...` in the collaborator agreement and workflow
   documents; direct `.venv/bin/pytest` handoffs are no longer used.
+- A later walkthrough traced the response types through `OllamaModel` and found
+  that its Phase 2 `unsupported_request` guard still rejects all nonempty
+  context. The scripted harness tests therefore prove orchestration mechanics
+  but not compatibility with the real adapter's second request. Reopened Block
+  3.2; the next design task is translating one completed tool interaction into
+  Ollama messages and adding a deterministic cross-boundary test.
 
 ### 2026-10-04 — Block 3.1 agent definition
 
