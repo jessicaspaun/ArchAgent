@@ -5,16 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 2 — Model boundary and structured output (next)
-- **Block:** 2.1 — Model interface (next; design not started)
-- **State:** Phase 1 is complete. All three repository tools can be discovered and invoked through the tested registry without a model. The behavior-preserving Block 1.7 refactor passes all 190 tests, Black, Ruff, and mypy.
-- **Application code:** Shared internal path helpers now own repository resolution and containment while listing and reading retain their operation-specific validation, failures, and filesystem mechanics. Search continues to compose those tools, and the registry remains the public discovery and invocation boundary.
-- **Repository state:** Blocks 1.2–1.6 are committed. Block 1.7 completion includes the internal path-boundary extraction, eight focused tests, and final Phase 1 documentation.
+- **Block:** 2.2 — First model interaction (next; design not started)
+- **State:** Block 2.1 is complete. The provider-independent model boundary passes all 208 tests, Black, Ruff, and strict mypy.
+- **Application code:** A synchronous structural `Model` protocol now accepts immutable requests containing separate instructions, question, typed tool history, and metadata-only tool definitions. It returns exactly one text response, tool request, or controlled model failure.
+- **Repository state:** Phase 1 is committed. Block 2.1 completion includes the model types, protocol, 18 focused cases, and Phase 2 workbook.
 
 ## Next action
 
-Begin Block 2.1 by defining the model boundary without selecting an agent
-framework. Compare the minimum request, response, configuration, and failure
-contracts needed to keep ArchAgent from depending directly on one provider.
+Begin Block 2.2 by choosing one low-level provider SDK and making the smallest
+real text-only request through a concrete adapter. Inspect the raw provider
+request and response before adding structured tool requests or retries.
 
 ## Current constraints
 
@@ -30,6 +30,27 @@ contracts needed to keep ArchAgent from depending directly on one provider.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 2.1 model interface design and implementation
+
+- Chose separate request fields for instructions, question, typed context, and
+  immutable tool metadata. Context retains matching structured tool requests and
+  results instead of flattening them into prompt text.
+- Chose exactly one action per response for V0.1: immutable `TextResponse` or
+  `ToolRequest`. Requests carry a nonempty opaque provider/adapter-supplied ID,
+  tool name, and read-only copied arguments.
+- Tool results repeat the request ID and tool name; completed interactions reject
+  mismatches. The model receives metadata only and cannot execute a tool through
+  this interface.
+- Chose a synchronous structural `Protocol`. Provider, model, credentials,
+  timeout, retry settings, and initial output limit belong to adapter
+  configuration. The future harness owns retry decisions.
+- Known provider or response problems use immutable `ModelFailure` values with
+  stable codes, safe messages, and a retryable flag. Unexpected defects remain
+  exceptions.
+- Added the Phase 2 workbook and 18 focused boundary cases. Final verification:
+  the owner reported all 208 tests pass. Black, Ruff, and strict mypy also pass.
+  Marked Block 2.1 complete.
 
 ### 2026-10-03 — Block 1.7 refactor and Phase 1 completion
 
@@ -439,9 +460,9 @@ contracts needed to keep ArchAgent from depending directly on one provider.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Phase 1 is complete: all 190 tests,
-> Black, Ruff, and mypy pass. Begin Block 2.1 by designing a provider-conscious
-> model interface without selecting an agent framework or making a model call.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.1 is complete: all 208 tests,
+> Black, Ruff, and mypy pass. Begin Block 2.2 by selecting one low-level model
+> SDK and making the smallest real text-only interaction through an adapter.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.
