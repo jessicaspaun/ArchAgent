@@ -1,6 +1,7 @@
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -62,23 +63,85 @@ class OllamaModel:
 
         try:
             with urlopen(http_request, timeout=self.config.timeout_seconds) as response:
-                response_data: object = json.loads(response.read())
+                response_bytes = response.read()
+        except HTTPError as error:
+            error.close()
+            return _http_failure(error.code)
+        except URLError as error:
+            if isinstance(error.reason, TimeoutError):
+                return _timed_out()
+            return _provider_unavailable()
+        except TimeoutError:
+            return _timed_out()
 
-            root = _object_mapping(response_data, "response")
-            message = _object_mapping(root.get("message"), "message")
-            metadata = ResponseMetadata(
-                model=_string_field(root, "model"),
-                input_tokens=_integer_field(root, "prompt_eval_count"),
-                output_tokens=_integer_field(root, "eval_count"),
-                stop_reason=_string_field(root, "done_reason"),
-            )
-            return _model_response(message, metadata, request.tools)
+        try:
+            response_data: object = json.loads(response_bytes)
+            return _translate_response(response_data, request.tools)
         except ValueError:
             return ModelFailure(
                 code="invalid_response",
                 message="Ollama returned a response that ArchAgent could not validate.",
                 retryable=True,
             )
+
+
+def _translate_response(
+    response_data: object,
+    tools: tuple[ToolMetadata, ...],
+) -> ModelResult:
+    root = _object_mapping(response_data, "response")
+    message = _object_mapping(root.get("message"), "message")
+    metadata = ResponseMetadata(
+        model=_string_field(root, "model"),
+        input_tokens=_integer_field(root, "prompt_eval_count"),
+        output_tokens=_integer_field(root, "eval_count"),
+        stop_reason=_string_field(root, "done_reason"),
+    )
+    return _model_response(message, metadata, tools)
+
+
+def _http_failure(status: int) -> ModelFailure:
+    if status in {401, 403}:
+        return ModelFailure(
+            code="authentication_failed",
+            message="Ollama rejected authentication.",
+            retryable=False,
+        )
+    if status == 404:
+        return ModelFailure(
+            code="model_not_found",
+            message="The configured Ollama model was not found.",
+            retryable=False,
+        )
+    if status == 429:
+        return ModelFailure(
+            code="rate_limited",
+            message="Ollama rate-limited the request.",
+            retryable=True,
+        )
+    if 500 <= status <= 599:
+        return _provider_unavailable()
+    return ModelFailure(
+        code="provider_rejected_request",
+        message="Ollama rejected the request.",
+        retryable=False,
+    )
+
+
+def _provider_unavailable() -> ModelFailure:
+    return ModelFailure(
+        code="provider_unavailable",
+        message="Ollama is unavailable.",
+        retryable=True,
+    )
+
+
+def _timed_out() -> ModelFailure:
+    return ModelFailure(
+        code="timed_out",
+        message="The Ollama request timed out.",
+        retryable=True,
+    )
 
 
 def _tool_schema(tool: ToolMetadata) -> dict[str, object]:

@@ -5,16 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 2 — Model boundary and structured output (next)
-- **Block:** 2.4 — Failure handling (next; design not started)
-- **State:** Block 2.3 is complete. Native Ollama tool-request translation passes all 226 tests, Black, Ruff, and strict mypy, and has been verified against local `qwen2.5:7b`.
-- **Application code:** `OllamaModel` translates immutable tool metadata into native function schemas and accepts exactly one text or tool-request action. It validates response structure and offered names without executing tools; registry argument validation remains downstream.
-- **Repository state:** Block 2.2 is committed. Block 2.3 completion includes schema translation, strict response-shape validation, focused cases, live observations, and documentation.
+- **Block:** 2.5 — Model tests (next; review not started)
+- **State:** Block 2.4 is complete. Expected Ollama HTTP, connection, timeout, and invalid-response failures have safe provider-independent results; all 241 tests, Black, Ruff, and strict mypy pass.
+- **Application code:** `OllamaModel` makes one request, closes response resources, classifies understood failures with retry guidance, and lets unexpected defects propagate. Retry execution remains assigned to the future harness.
+- **Repository state:** Block 2.3 is committed. Block 2.4 completion includes failure translation, 15 focused cases, and ownership documentation.
 
 ## Next action
 
-Begin Block 2.4 by exercising malformed responses, HTTP failures, connection
-failures, timeouts, and provider error ownership. Decide stable failure codes,
-safe messages, retryability, and which unexpected defects must propagate.
+Begin Block 2.5 by reviewing deterministic model-boundary coverage, identifying
+meaningful gaps and duplication, and defining the narrow role of optional live
+Ollama integration checks.
 
 ## Current constraints
 
@@ -30,6 +30,24 @@ safe messages, retryability, and which unexpected defects must propagate.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 2.4 provider failure handling
+
+- Assigned safe stable codes and retryability for authentication, missing model,
+  rate limit, other HTTP rejection, provider unavailability, timeout, and invalid
+  response conditions.
+- Kept retry execution outside the adapter. `OllamaModel` makes one attempt and
+  reports guidance for the future harness.
+- Split transport handling from JSON decoding and response validation so each
+  failure stage maps to its correct owner.
+- Close normal and HTTP error response streams. Messages omit provider bodies,
+  URLs, prompts, local paths, and underlying exception details.
+- Catch only understood HTTP, URL, timeout, and validation failures. Unexpected
+  programming exceptions still propagate.
+- Added 15 focused cases across HTTP categories, connection and timeout forms,
+  malformed provider data, resource closure, one-attempt behavior, and unexpected
+  defects. Final verification: the owner reported all 241 tests pass. Black,
+  Ruff, and strict mypy also pass. Marked Block 2.4 complete.
 
 ### 2026-10-03 — Block 2.3 native structured tool requests
 
@@ -499,9 +517,9 @@ safe messages, retryability, and which unexpected defects must propagate.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.3 is complete: all 226 tests,
-> Black, Ruff, and mypy pass. Begin Block 2.4 by designing and exercising
-> provider, transport, timeout, and malformed-response failure handling.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.4 is complete: all 241 tests,
+> Black, Ruff, and mypy pass. Begin Block 2.5 by reviewing deterministic model
+> tests and deciding how optional live Ollama integration checks should run.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.

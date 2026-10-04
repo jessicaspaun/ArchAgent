@@ -1,8 +1,10 @@
 import json
 from collections.abc import Mapping
+from email.message import Message
 from io import BytesIO
 from pathlib import Path
 from types import TracebackType
+from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 import pytest
@@ -27,6 +29,29 @@ class FakeHttpResponse:
         self._stream = BytesIO(json.dumps(data).encode("utf-8"))
 
     def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self._stream.close()
+
+    def read(self) -> bytes:
+        return self._stream.read()
+
+
+class RawHttpResponse:
+    def __init__(self, data: bytes) -> None:
+        self._stream = BytesIO(data)
+
+    @property
+    def closed(self) -> bool:
+        return self._stream.closed
+
+    def __enter__(self) -> "RawHttpResponse":
         return self
 
     def __exit__(
@@ -353,3 +378,126 @@ def test_ollama_config_rejects_invalid_values(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         OllamaConfig(model=model, base_url=base_url, timeout_seconds=timeout)
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "retryable"),
+    [
+        (401, "authentication_failed", False),
+        (403, "authentication_failed", False),
+        (404, "model_not_found", False),
+        (429, "rate_limited", True),
+        (500, "provider_unavailable", True),
+        (503, "provider_unavailable", True),
+        (400, "provider_rejected_request", False),
+    ],
+)
+def test_ollama_translates_http_failures_without_exposing_details(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    code: str,
+    retryable: bool,
+) -> None:
+    secret_url = "http://secret-host:11434/api/chat"
+    secret_body = BytesIO(b"secret provider response")
+    headers = Message()
+
+    def failed_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        raise HTTPError(secret_url, status, "secret reason", headers, secret_body)
+
+    monkeypatch.setattr(ollama_module, "urlopen", failed_urlopen)
+
+    result = OllamaModel().generate(ModelRequest("Instructions", "Question"))
+
+    assert isinstance(result, ModelFailure)
+    assert result.code == code
+    assert result.retryable is retryable
+    assert "secret" not in result.message
+    assert secret_url not in result.message
+    assert secret_body.closed
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            URLError(ConnectionRefusedError("secret host refused")),
+            ModelFailure("provider_unavailable", "Ollama is unavailable.", True),
+        ),
+        (
+            TimeoutError("secret timeout detail"),
+            ModelFailure("timed_out", "The Ollama request timed out.", True),
+        ),
+        (
+            URLError(TimeoutError("secret timeout detail")),
+            ModelFailure("timed_out", "The Ollama request timed out.", True),
+        ),
+    ],
+)
+def test_ollama_translates_connection_and_timeout_failures_once(
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    expected: ModelFailure,
+) -> None:
+    attempts = 0
+
+    def failed_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        nonlocal attempts
+        attempts += 1
+        raise error
+
+    monkeypatch.setattr(ollama_module, "urlopen", failed_urlopen)
+
+    result = OllamaModel().generate(ModelRequest("Instructions", "Question"))
+
+    assert result == expected
+    assert attempts == 1
+    assert "secret" not in result.message
+
+
+@pytest.mark.parametrize(
+    "response_data",
+    [
+        b"not JSON",
+        b"{}",
+        (
+            b'{"model": 7, "message": {"content": "answer"}, '
+            b'"done_reason": "stop", "prompt_eval_count": 1, "eval_count": 1}'
+        ),
+        (
+            b'{"model": "model", "message": {"content": "answer"}, '
+            b'"done_reason": "stop", "prompt_eval_count": -1, "eval_count": 1}'
+        ),
+    ],
+)
+def test_ollama_returns_controlled_failure_for_invalid_provider_data(
+    monkeypatch: pytest.MonkeyPatch,
+    response_data: bytes,
+) -> None:
+    response = RawHttpResponse(response_data)
+
+    def fake_urlopen(request: Request, timeout: float) -> RawHttpResponse:
+        return response
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+
+    result = OllamaModel().generate(ModelRequest("Instructions", "Question"))
+
+    assert result == ModelFailure(
+        code="invalid_response",
+        message="Ollama returned a response that ArchAgent could not validate.",
+        retryable=True,
+    )
+    assert response.closed
+
+
+def test_ollama_unexpected_exception_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        raise RuntimeError("Unexpected defect")
+
+    monkeypatch.setattr(ollama_module, "urlopen", broken_urlopen)
+
+    with pytest.raises(RuntimeError, match="Unexpected defect"):
+        OllamaModel().generate(ModelRequest("Instructions", "Question"))

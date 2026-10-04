@@ -163,3 +163,42 @@ one-call translation, mixed actions, multiple calls, unknown tools, malformed
 arguments, and invalid `tool_calls` containers. Black, Ruff, and strict mypy
 pass. Final verification on 2026-10-03: all 226 tests pass. Block 2.3 is
 complete.
+
+## Block 2.4 — Failure handling
+
+### Ownership and retry guidance
+
+The Ollama adapter translates expected provider and transport failures into
+safe, immutable `ModelFailure` values:
+
+| Condition | Code | Retryable |
+| --- | --- | --- |
+| HTTP 401 or 403 | `authentication_failed` | No |
+| HTTP 404 | `model_not_found` | No |
+| HTTP 429 | `rate_limited` | Yes |
+| HTTP 500–599 | `provider_unavailable` | Yes |
+| Other HTTP rejection | `provider_rejected_request` | No |
+| Connection failure | `provider_unavailable` | Yes |
+| Timeout | `timed_out` | Yes |
+| Invalid JSON or response structure | `invalid_response` | Yes |
+
+Failure messages do not include provider response bodies, URLs, prompts,
+credentials, filesystem paths, or underlying exception details. HTTP error and
+ordinary response streams are closed.
+
+The adapter makes exactly one request. Its `retryable` field is guidance for the
+future harness, which will own retry counts, delay, and termination. This keeps
+provider translation separate from execution policy.
+
+Only understood failures are converted. An unrelated programming exception
+continues to propagate so implementation defects are not disguised as normal
+provider conditions.
+
+### Test plan and current result
+
+Deterministic tests cover every HTTP status category, connection refusal,
+direct and wrapped timeouts, malformed JSON, missing and incorrectly typed
+fields, invalid token counts, safe messages, response closure, one-attempt
+behavior, and unexpected exception propagation. Black, Ruff, and strict mypy
+pass. Final verification on 2026-10-03: all 241 tests pass. Block 2.4 is
+complete.

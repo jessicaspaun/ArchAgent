@@ -36,7 +36,7 @@ Exit condition: tools can be discovered and invoked through a tested contract wi
 - [x] **2.1 Model interface** — design a boundary that does not fundamentally bind ArchAgent to one provider.
 - [x] **2.2 First model interaction** — make and inspect the simplest request and response before hiding details.
 - [x] **2.3 Structured output** — require and validate machine-readable model output.
-- [ ] **2.4 Failure handling** — explore malformed output, missing fields, timeouts, and provider errors; assign ownership.
+- [x] **2.4 Failure handling** — explore malformed output, missing fields, timeouts, and provider errors; assign ownership.
 - [ ] **2.5 Model tests** — design deterministic model-boundary tests without relying on live calls for every run.
 
 Exit condition: model-facing behavior has an explicit, provider-conscious contract with understood failure paths.
