@@ -130,48 +130,209 @@ def test_ollama_uses_configured_model_base_url_and_timeout(
     assert json.loads(request.data)["model"] == "custom-model"
 
 
-@pytest.mark.parametrize("unsupported", ["context", "tools"])
 def test_ollama_rejects_unsupported_request_before_network_access(
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    unsupported: str,
 ) -> None:
     def forbidden_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
         pytest.fail("Unsupported requests must not contact Ollama")
 
     monkeypatch.setattr(ollama_module, "urlopen", forbidden_urlopen)
-    if unsupported == "context":
-        tool_request = ToolRequest("call-1", "list_files", {"path": "."})
-        tool_result = ToolResultMessage(
-            "call-1",
-            "list_files",
-            ListFilesSuccess(directory=".", entries=()),
-        )
-        request = ModelRequest(
-            "Instructions",
-            "Question",
-            context=(ToolInteraction(tool_request, tool_result),),
-        )
-    else:
-        target = tmp_path / "target"
-        protected = tmp_path / "protected"
-        target.mkdir()
-        protected.mkdir()
-        request = ModelRequest(
-            "Instructions",
-            "Question",
-            tools=create_repository_registry(target, protected).discover(),
-        )
+    tool_request = ToolRequest(
+        "call-1",
+        "list_files",
+        {"path": "."},
+        ResponseMetadata("fake", 1, 2, "stop"),
+    )
+    tool_result = ToolResultMessage(
+        "call-1",
+        "list_files",
+        ListFilesSuccess(directory=".", entries=()),
+    )
+    request = ModelRequest(
+        "Instructions",
+        "Question",
+        context=(ToolInteraction(tool_request, tool_result),),
+    )
 
     result = OllamaModel().generate(request)
 
     assert result == ModelFailure(
         code="unsupported_request",
-        message=(
-            "The text-only Ollama adapter does not yet support context or tool "
-            "definitions."
-        ),
+        message="The Ollama adapter does not yet support prior tool context.",
         retryable=False,
+    )
+
+
+def test_ollama_sends_tool_schemas_and_translates_one_tool_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[Request] = []
+
+    def fake_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        captured.append(request)
+        return FakeHttpResponse(
+            {
+                "model": "qwen2.5:7b",
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call-provider",
+                            "function": {
+                                "index": 0,
+                                "name": "list_files",
+                                "arguments": {"path": ""},
+                            },
+                        }
+                    ],
+                },
+                "done_reason": "stop",
+                "prompt_eval_count": 195,
+                "eval_count": 19,
+            }
+        )
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    tools = create_repository_registry(target, protected).discover()
+
+    result = OllamaModel().generate(
+        ModelRequest("Use repository tools.", "List root files.", tools=tools)
+    )
+
+    assert result == ToolRequest(
+        id="call-provider",
+        tool_name="list_files",
+        arguments={"path": ""},
+        metadata=ResponseMetadata("qwen2.5:7b", 195, 19, "stop"),
+    )
+    assert isinstance(captured[0].data, bytes)
+    payload = json.loads(captured[0].data)
+    assert [tool["function"]["name"] for tool in payload["tools"]] == [
+        "list_files",
+        "read_file",
+        "search_code",
+    ]
+    list_schema = payload["tools"][0]["function"]["parameters"]
+    assert list_schema == {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "A repository-relative directory path.",
+                "minLength": 1,
+            },
+            "include_hidden": {
+                "type": "boolean",
+                "description": "Include entries whose names begin with a dot.",
+                "default": False,
+            },
+        },
+        "required": ["path"],
+        "additionalProperties": False,
+    }
+
+
+def test_ollama_generates_id_when_tool_call_omits_one(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        return FakeHttpResponse(
+            {
+                "model": "qwen2.5:7b",
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {"function": {"name": "list_files", "arguments": {}}}
+                    ],
+                },
+                "done_reason": "stop",
+                "prompt_eval_count": 1,
+                "eval_count": 1,
+            }
+        )
+
+    class FixedUuid:
+        hex = "fixed"
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ollama_module, "uuid4", lambda: FixedUuid())
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    tools = create_repository_registry(target, protected).discover()
+
+    result = OllamaModel().generate(
+        ModelRequest("Instructions", "Question", tools=tools)
+    )
+
+    assert isinstance(result, ToolRequest)
+    assert result.id == "call_fixed"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {
+            "content": "text",
+            "tool_calls": [{"function": {"name": "list_files", "arguments": {}}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"function": {"name": "list_files", "arguments": {}}},
+                {"function": {"name": "read_file", "arguments": {}}},
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"function": {"name": "unknown", "arguments": {}}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"function": {"name": "list_files", "arguments": []}}],
+        },
+        {"content": "", "tool_calls": "invalid"},
+    ],
+)
+def test_ollama_returns_controlled_failure_for_invalid_action_response(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    message: dict[str, object],
+) -> None:
+    def fake_urlopen(request: Request, timeout: float) -> FakeHttpResponse:
+        return FakeHttpResponse(
+            {
+                "model": "qwen2.5:7b",
+                "message": message,
+                "done_reason": "stop",
+                "prompt_eval_count": 1,
+                "eval_count": 1,
+            }
+        )
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    tools = create_repository_registry(target, protected).discover()
+
+    result = OllamaModel().generate(
+        ModelRequest("Instructions", "Question", tools=tools)
+    )
+
+    assert result == ModelFailure(
+        code="invalid_response",
+        message="Ollama returned a response that ArchAgent could not validate.",
+        retryable=True,
     )
 
 

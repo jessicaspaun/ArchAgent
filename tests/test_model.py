@@ -30,6 +30,7 @@ def make_tool_request() -> ToolRequest:
         id="call-1",
         tool_name="list_files",
         arguments={"path": "."},
+        metadata=ResponseMetadata("fake", 1, 2, "stop"),
     )
 
 
@@ -77,7 +78,12 @@ def test_model_request_rejects_empty_required_text(
 
 def test_tool_request_copies_arguments_into_read_only_mapping() -> None:
     arguments: dict[str, object] = {"path": "."}
-    request = ToolRequest("call-1", "list_files", arguments)
+    request = ToolRequest(
+        "call-1",
+        "list_files",
+        arguments,
+        ResponseMetadata("fake", 1, 2, "stop"),
+    )
 
     arguments["path"] = "changed"
 
@@ -99,7 +105,12 @@ def test_tool_request_rejects_empty_identity_fields(
     message: str,
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        ToolRequest(request_id, tool_name, {})
+        ToolRequest(
+            request_id,
+            tool_name,
+            {},
+            ResponseMetadata("fake", 1, 2, "stop"),
+        )
 
 
 @pytest.mark.parametrize(
@@ -166,7 +177,7 @@ class TextModel:
 
 class RequestingModel:
     def generate(self, request: ModelRequest) -> ModelResult:
-        return ToolRequest("call-1", "list_files", {"path": "."})
+        return make_tool_request()
 
 
 def generate(model: Model, request: ModelRequest) -> ModelResult:

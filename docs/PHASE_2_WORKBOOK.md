@@ -116,3 +116,50 @@ The adapter was also invoked once against the installed local model and returned
 `TextResponse(text="ready", metadata=...)` with the expected observed values.
 Final verification on 2026-10-03: all 220 tests pass. Black, Ruff, and strict
 mypy also pass. Block 2.2 is complete.
+
+## Block 2.3 — Structured output
+
+### Native tool-call contract
+
+ArchAgent uses Ollama's native `/api/chat` tool calling rather than asking the
+model to imitate a tool call in free-form text. Public `ToolMetadata` is
+translated into function definitions with JSON Schema parameters:
+
+- argument types become JSON Schema string or Boolean types;
+- required arguments enter the schema's `required` list;
+- optional defaults are included in property definitions;
+- `nonempty` becomes `minLength: 1`; and
+- the tool's extra-argument policy becomes `additionalProperties`.
+
+Repository-relative constraints remain in argument descriptions and are
+authoritatively enforced by `ToolRegistry`. JSON Schema guidance cannot prove
+filesystem containment.
+
+One model response still represents exactly one action. No tool calls produces
+a `TextResponse`. Exactly one tool call with empty response text produces a
+`ToolRequest`. Mixed text and tool output, multiple calls, malformed call
+structures, or a tool name that was not offered produce a retryable
+`invalid_response` failure. No tool is executed by the model adapter.
+
+`ToolRequest` now carries the same provider-independent response metadata as a
+text response. The adapter preserves Ollama's nonempty call ID when present and
+generates an opaque fallback only when the field is absent.
+
+### Live observations
+
+The first raw Qwen tool response returned one native `list_files` call and no
+text. Ollama supplied an ID, but Qwen returned an empty `path` despite the
+schema's `minLength: 1`. This is expected model-behavior evidence: schemas guide
+generation but do not replace deterministic request validation. The future
+harness will submit the request to `ToolRegistry`, which rejects the empty path
+before execution.
+
+After implementation, a live call through `OllamaModel` returned a structured
+`ToolRequest` with the provider ID, `list_files`, the unmodified empty-path
+arguments, and response metadata. It did not execute the tool.
+
+Deterministic tests cover exact schema translation, provider and fallback IDs,
+one-call translation, mixed actions, multiple calls, unknown tools, malformed
+arguments, and invalid `tool_calls` containers. Black, Ruff, and strict mypy
+pass. Final verification on 2026-10-03: all 226 tests pass. Block 2.3 is
+complete.

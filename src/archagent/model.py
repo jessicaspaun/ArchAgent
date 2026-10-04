@@ -7,10 +7,27 @@ from .tools.registry import ToolMetadata, ToolResult
 
 
 @dataclass(frozen=True)
+class ResponseMetadata:
+    model: str
+    input_tokens: int
+    output_tokens: int
+    stop_reason: str
+
+    def __post_init__(self) -> None:
+        if not self.model:
+            raise ValueError("Response model must be nonempty")
+        if self.input_tokens < 0 or self.output_tokens < 0:
+            raise ValueError("Response token counts must be non-negative")
+        if not self.stop_reason:
+            raise ValueError("Response stop reason must be nonempty")
+
+
+@dataclass(frozen=True)
 class ToolRequest:
     id: str
     tool_name: str
     arguments: Mapping[str, object]
+    metadata: ResponseMetadata
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -57,22 +74,6 @@ class ModelRequest:
             raise ValueError("Model instructions must be nonempty")
         if not self.question:
             raise ValueError("Model question must be nonempty")
-
-
-@dataclass(frozen=True)
-class ResponseMetadata:
-    model: str
-    input_tokens: int
-    output_tokens: int
-    stop_reason: str
-
-    def __post_init__(self) -> None:
-        if not self.model:
-            raise ValueError("Response model must be nonempty")
-        if self.input_tokens < 0 or self.output_tokens < 0:
-            raise ValueError("Response token counts must be non-negative")
-        if not self.stop_reason:
-            raise ValueError("Response stop reason must be nonempty")
 
 
 @dataclass(frozen=True)

@@ -5,16 +5,16 @@ Last updated: 2026-10-03
 ## Current position
 
 - **Phase:** 2 — Model boundary and structured output (next)
-- **Block:** 2.3 — Structured output (next; design not started)
-- **State:** Block 2.2 is complete. The direct Ollama adapter completed a live text-only interaction with local `qwen2.5:7b`; all 220 tests, Black, Ruff, and strict mypy pass.
-- **Application code:** `OllamaModel` translates text-only requests to synchronous, non-streaming `/api/chat` calls and translates replies into `TextResponse` with common model, token, and stop metadata. Context or tools are rejected before network access until later blocks implement them.
-- **Repository state:** Block 2.1 is committed. Block 2.2 completion includes the direct Ollama adapter, response metadata, 12 additional cases, and observed interaction documentation.
+- **Block:** 2.4 — Failure handling (next; design not started)
+- **State:** Block 2.3 is complete. Native Ollama tool-request translation passes all 226 tests, Black, Ruff, and strict mypy, and has been verified against local `qwen2.5:7b`.
+- **Application code:** `OllamaModel` translates immutable tool metadata into native function schemas and accepts exactly one text or tool-request action. It validates response structure and offered names without executing tools; registry argument validation remains downstream.
+- **Repository state:** Block 2.2 is committed. Block 2.3 completion includes schema translation, strict response-shape validation, focused cases, live observations, and documentation.
 
 ## Next action
 
-Begin Block 2.3 by designing structured tool-request translation for the Ollama
-chat API. Preserve the rule that a model requests one action and never executes
-a tool itself.
+Begin Block 2.4 by exercising malformed responses, HTTP failures, connection
+failures, timeouts, and provider error ownership. Decide stable failure codes,
+safe messages, retryability, and which unexpected defects must propagate.
 
 ## Current constraints
 
@@ -30,6 +30,25 @@ a tool itself.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-03 — Block 2.3 native structured tool requests
+
+- Chose Ollama's native function schema and `message.tool_calls` format instead
+  of prompting for free-form JSON.
+- Mapped public tool metadata into JSON Schema, including required arguments,
+  defaults, `minLength`, and `additionalProperties`. Repository containment
+  remains a deterministic registry/tool responsibility.
+- Preserved the V0.1 single-action rule: text or exactly one tool request. Mixed,
+  multiple, malformed, and unknown-tool responses become retryable
+  `invalid_response` failures.
+- Added common response metadata to `ToolRequest`. Preserve a provider call ID
+  when present and generate an opaque fallback only when omitted.
+- A raw live response and a later call through the implemented adapter both
+  produced `list_files` with an empty path. This demonstrates that native schemas
+  do not replace registry validation. Neither interaction executed the tool.
+- Added focused deterministic schema and response-shape cases. Final
+  verification: the owner reported all 226 tests pass. Black, Ruff, and strict
+  mypy also pass. Marked Block 2.3 complete.
 
 ### 2026-10-03 — Block 2.2 direct Ollama interaction
 
@@ -480,9 +499,9 @@ a tool itself.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.2 is complete: all 220 tests,
-> Black, Ruff, and mypy pass. Begin Block 2.3 by designing structured tool-call
-> translation for Ollama while keeping execution in the future harness.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 2.3 is complete: all 226 tests,
+> Black, Ruff, and mypy pass. Begin Block 2.4 by designing and exercising
+> provider, transport, timeout, and malformed-response failure handling.
 > Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
 > macOS editable-install issue has a persistent fix, and update project status
 > when we finish.
