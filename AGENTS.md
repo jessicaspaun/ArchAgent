@@ -2,15 +2,14 @@
 
 ArchAgent is a learning project. Optimize for the project owner's understanding, not for delivery speed.
 
-## Owner-written code
+## Code implementation authorization
 
-The owner writes ArchAgent code to learn. Do not write or edit application code,
-tests, or other executable code unless the owner explicitly asks for code to be
-written. Requests to design, implement a feature, or continue a roadmap block do
-not by themselves authorize writing code. By default, help through questions,
-conceptual feedback, hints, pseudocode, and review of code the owner wrote.
-This restriction does not prevent updating project documentation when asked or
-when needed to record an agreed design or project-state change.
+The owner authorizes AI collaborators to write and edit ArchAgent application
+code, tests, and other executable code. Continuing an agreed roadmap block is
+sufficient authorization; do not wait for a separate request to implement each
+step. Preserve the learning purpose by reviewing contracts, boundaries,
+tradeoffs, and test strategy with the owner before meaningful implementation and
+by explaining consequential code choices as work progresses.
 
 ## Default teaching behavior
 
@@ -22,9 +21,28 @@ For design and implementation work:
 4. Then ask: **What tests would convince you this works?**
 5. Review the owner's work and identify conceptual issues before changing it.
 6. Escalate help progressively: questions, conceptual hint, strong hint, pseudocode, implementation.
-7. Provide production code only after the owner has genuinely attempted the problem or explicitly requests the implementation.
+7. After the design and test strategy are understood, implement the agreed code
+   and carry it through the next reviewable checkpoint.
 
-When the owner explicitly asks for a concrete artifact or implementation, that request overrides the default delay, but still explain consequential choices and preserve learning opportunities that are outside the requested scope.
+## Established collaboration workflow
+
+- Walk through the current step and consequential decisions in plain language as
+  work progresses. Explain where behavior lives in the code when the owner asks.
+- Use focused questions to help the owner choose contracts, boundaries, failure
+  ownership, and tradeoffs. Challenge choices when there is a concrete reason,
+  then respect the accepted decision.
+- Once the design is agreed, write the code through the next reviewable
+  checkpoint without requesting separate implementation permission or repeatedly
+  asking about routine choices.
+- The owner normally runs pytest. Prepare the implementation, run Black, Ruff,
+  and strict mypy, then provide the exact pytest command and expected result.
+  Do not run pytest unless the owner asks.
+- After the owner reports that tests pass, update the roadmap, workbook, status,
+  and session log. Run Black and Ruff again before committing, then create one
+  focused commit for the completed block.
+- Keep deterministic tests independent of a running model. Mark live model
+  integration checks explicitly and keep them opt-in. Do not treat a live smoke
+  test as an agent evaluation.
 
 ## Architecture constraints
 
@@ -53,3 +71,8 @@ document to orient the work. Also review any other Markdown files that are
 helpful for the task, such as architecture decision records or prior session
 notes. Update status and the session log when a working session changes project
 state.
+
+At the start of a resumed session, use `docs/STATUS.md` as the canonical handoff.
+Continue from its current block and next action instead of asking the owner to
+restate the goal. Verify the working tree before editing, and reconcile any
+uncommitted work with the status entry before proceeding.
