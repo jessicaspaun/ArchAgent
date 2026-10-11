@@ -8,14 +8,11 @@ Last updated: 2026-10-11
 - **Block:** 3.4 — Context complete; next is 3.5 — Failure cases
 - **State:** Under the owner's session-level pytest authorization, the full suite reports 327 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy, including the deterministic example script, pass. The example visibly demonstrates context growth without a live model.
 - **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
-- **Repository state:** Work remains on `feature/block-3-agent-loop` after commits `6229120` (3.2) and `cf43551` (3.3). The Block 3.4 completion checkpoint includes code, tests, a deterministic example, and updated records. The owner requested a push, but GitHub rejected the stored credentials; `gh auth status` confirmed an invalid token for `jessicaspaun`. No push succeeded. A sign-in request is pending with the owner.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. The owner refreshed GitHub authentication, resolving the earlier push failures.
 
 ## Next action
 
-After the owner runs `gh auth login -h github.com` and confirms sign-in, retry
-the already authorized push of `feature/block-3-agent-loop` with upstream
-tracking. Do not expose credentials or claim a successful push until verified.
-Then begin Block 3.5 by reviewing the existing deterministic coverage for
+Begin Block 3.5 by reviewing the existing deterministic coverage for
 repeated calls, missing tools, invalid arguments, tool exceptions, and
 nontermination. Ask the owner to identify remaining failure cases and agree on
 any changes/tests; do not duplicate already-covered contracts automatically.
@@ -34,6 +31,15 @@ any changes/tests; do not duplicate already-covered contracts automatically.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-11 — Push completed Block 3 work
+
+- Retried the authorized push; HTTPS credentials were unavailable and the
+  stored GitHub CLI token was invalid. SSH authentication also failed.
+- Started GitHub's browser sign-in flow, which the owner completed. Pushed
+  `feature/block-3-agent-loop` successfully with upstream tracking, including
+  completion commits for Blocks 3.2, 3.3, and 3.4. Updated the handoff to remove
+  the authentication blocker. No application code changed.
 
 ### 2026-10-11 — Block 3.4 context budget and mandatory run logs
 
@@ -677,5 +683,5 @@ If useful, begin a future session with:
 > Read `AGENTS.md` and `docs/STATUS.md`. Block 3.4 is complete on
 > `feature/block-3-agent-loop`: 327 tests pass with one skipped live-model check;
 > Black, Ruff, and strict mypy pass. Reconcile the working tree, then begin
-> Block 3.5 failure-case review. The owner also authorized a push, which is
-> pending refreshed GitHub authentication; retry after sign-in is confirmed.
+> Block 3.5 failure-case review. The branch is pushed to GitHub and tracks
+> `origin/feature/block-3-agent-loop`.
