@@ -1,21 +1,23 @@
 # Project Status
 
-Last updated: 2026-10-04
+Last updated: 2026-10-11
 
 ## Current position
 
 - **Phase:** 3 — First agent loop
-- **Block:** 3.2 — Single tool call (reopened; integration gap found)
-- **State:** The deterministic harness and its tests are implemented, and the suite reports 258 passed with one skipped live-model check. A walkthrough found that `OllamaModel` still rejects nonempty tool context, so the real second model call cannot yet receive a tool observation. Black, Ruff, and strict mypy pass.
-- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. Known model failures become controlled agent failures, retryable model failures share a run-wide budget, and unexpected exceptions propagate.
-- **Repository state:** Commit `7c8f5be` contains the harness and passing isolated tests but records Block 3.2 as complete prematurely. The context-translation gap is documented in the current working tree.
+- **Block:** 3.2 — Single tool call complete; next is 3.3 — Multiple tool calls
+- **State:** The owner authorized collaborator-run pytest for this session: 57 focused tests pass; the full suite reports 270 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy pass. The adapter context-translation gap is resolved.
+- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. `OllamaModel` now translates completed interactions into ordered assistant tool-call and tool-result messages, preserving names, arguments, IDs, success data, and controlled failure codes/messages. Retry policy and unexpected exception propagation remain harness responsibilities.
+- **Repository state:** Block 3.2 is complete on `feature/block-3-agent-loop`, based on merged `main` commit `334d923`. The completion checkpoint includes adapter translation, deterministic tests, and updated project records; no remote push is part of this session.
 
 ## Next action
 
-Continue Block 3.2 by defining how one completed `ToolInteraction` translates
-into Ollama's assistant tool-call and tool-result message sequence. Add focused
-adapter tests and a deterministic harness/adapter integration test before
-re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
+Begin Block 3.3 by asking the owner to propose the bounded multiple-tool-call
+contract. Discuss how the harness retains ordered interactions, counts tool
+proposals, allows a final answer after the last permitted execution, and
+terminates repeated requests. Preserve the run-wide model-retry budget and
+fresh state across runs. Ask what tests would establish those guarantees before
+implementation; no Block 3.3 design has been agreed yet.
 
 ## Current constraints
 
@@ -31,6 +33,37 @@ re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-11 — Block 3.2 adapter context translation
+
+- Confirmed that earlier work was pushed to `docs/product-definition` but had
+  not reached the default branch. The owner merged pull request #1; fetched
+  and fast-forwarded local `main` to `334d923`, then created
+  `feature/block-3-agent-loop` for Phase 3 continuation.
+- The owner defined outcome preservation: send successful response data or a
+  failure code, retain parameters, and test success, invalid parameters,
+  controlled failures, and uncontrolled errors. Expanded the contract to retain
+  tool names, correlated IDs, safe failure messages, and message order.
+- Replaced the Ollama adapter's nonempty-context rejection with assistant
+  tool-call and tool-result translation. Result content is JSON:
+  `{"status": "success", "data": ...}` or
+  `{"status": "failure", "error": {"code": ..., "message": ...}}`.
+- Used the existing result dataclasses for serialization; search metadata and
+  empty results are retained. Repository text remains tool-message data, which
+  is a structural boundary check rather than proof of prompt-injection defense.
+- Added adapter tests for all three success result types, empty listings,
+  controlled failure translation, and transport failure with context. Added
+  deterministic harness/adapter/real-registry cases for success, generated and
+  provider IDs, missing files, empty/mistyped/extra arguments, and unexpected
+  tool exceptions without a follow-up model call.
+- Initially handed off pytest to the owner, with Black, Ruff, and strict mypy
+  passing. The owner then explicitly asked the collaborator to run both suites
+  this session: 57 focused tests passed and the full suite reported 270 passed
+  with one skipped opt-in live check. No live model was called.
+- Marked Block 3.2 complete, documented the adapter contract and cross-boundary
+  tests in the workbook, and advanced the canonical next action to Block 3.3
+  contract design. Prepared one focused completion commit after formatting and
+  lint verification.
 
 ### 2026-10-04 — Block 3.2 single-tool design and implementation
 
@@ -583,10 +616,8 @@ re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Phase 2 is complete: the default suite
-> reports 242 passed and one skipped live test; the opt-in Ollama check passes.
-> Black, Ruff, and mypy pass. Begin Block 3.1 by defining the agent and assigning
-> responsibilities among the model, harness, registry, and tools.
-> Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
-> macOS editable-install issue has a persistent fix, and update project status
-> when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.2 is complete on
+> `feature/block-3-agent-loop`: 270 tests pass with one skipped live-model check;
+> Black, Ruff, and strict mypy pass. Reconcile the working tree, then begin
+> Block 3.3 by asking the owner to propose the multiple-tool-call contract and
+> termination policy. Agree on tests before implementation.

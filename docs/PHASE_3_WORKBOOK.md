@@ -101,6 +101,33 @@ does not replenish it. Exhaustion produces `model_retry_exhausted`.
 Non-retryable model failures retain their safe code and message and terminate
 immediately. Unexpected model or tool exceptions propagate.
 
+### Ollama context translation
+
+The owner defined the adapter contract to preserve success/failure, successful
+response data, failure codes, and the original parameters. The completed
+contract also retains the tool name, correlated request/result ID, safe failure
+message, and ordering.
+
+Each completed interaction becomes an assistant message containing the original
+tool call, followed by a tool message containing its outcome. The assistant
+call carries `id`, function `name`, and `arguments`; the result carries
+`tool_name`, matching `tool_call_id`, and JSON text in `content`:
+
+- Success: `{"status": "success", "data": ...}` with all existing success
+  dataclass fields, including search matches, skipped files, and truncation.
+- Controlled failure: `{"status": "failure", "error": {"code": ..., "message": ...}}`.
+
+Instructions and the original question precede those messages. The adapter
+translates observations but does not execute tools, revalidate parameters, or
+choose retries. Incorrect parameters are rejected by the registry and returned
+as controlled observations. Unexpected tool exceptions propagate before a
+follow-up model request is constructed.
+
+This follows [Ollama's documented tool-call sequence](https://docs.ollama.com/capabilities/tool-calling)
+and its [native message and tool-call fields](https://github.com/ollama/ollama/blob/main/api/types.go).
+Repository text remains inside tool-result content; this structural separation
+does not prove that a model resists prompt injection.
+
 ### Deterministic test plan
 
 Scripted-model tests cover immediate success; one successful tool interaction;
@@ -110,12 +137,19 @@ non-retryable model failure; retry recovery and exhaustion; a shared retry
 budget across both logical model requests; fresh state across runs; invalid
 configuration and result construction; and unexpected exception propagation.
 
-The owner runs pytest after implementation review. Black, Ruff, and strict mypy
-are run by the collaborator before handoff. The owner commands for this block
-are:
+Adapter tests cover all three success result types, an empty listing, untrusted
+text and Unicode preservation, controlled failures, and connection failure with
+context. Deterministic integration tests use the actual harness, Ollama
+adapter, registry, and repository reader with simulated HTTP responses. They
+cover successful reading, provider and generated IDs, missing files,
+empty/mistyped/extra parameters, and unexpected tool errors stopping the run
+without a second model call. They check translated messages, not model quality.
+
+The owner normally runs pytest after implementation review. Black, Ruff, and
+strict mypy are run by the collaborator before handoff. Commands for this block:
 
 ```bash
-PYTHONPATH=src uv run pytest tests/test_agent.py -q
+PYTHONPATH=src uv run pytest tests/test_ollama.py tests/test_agent_ollama.py tests/test_agent.py -q
 PYTHONPATH=src uv run pytest -q
 ```
 
@@ -124,6 +158,12 @@ live-model check. Black, Ruff, and strict mypy pass. A subsequent code walkthrou
 found an integration gap: `OllamaModel.generate()` still returns
 `unsupported_request` whenever `ModelRequest.context` is nonempty. The harness's
 second request therefore works with the scripted model but not with the real
-adapter. Block 3.2 remains in progress until completed `ToolInteraction` values
-are translated into Ollama messages and covered by adapter and harness/adapter
-integration tests.
+adapter. Block 3.2 was reopened pending context translation and cross-boundary
+tests.
+
+Verification on 2026-10-11: the owner explicitly asked the collaborator to run
+pytest this session. The focused suite reports 57 passed; the full suite reports
+270 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy
+pass. The translation and deterministic integration gap is resolved; Block 3.2
+is complete. No live model was called, and model investigation quality remains
+an evaluation concern.
