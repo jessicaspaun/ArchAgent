@@ -12,39 +12,39 @@ The canonical current position and next action live in [STATUS.md](STATUS.md).
 
 ## Phase 0 — Think before coding (~4 hours)
 
-- [ ] **0.1 Product definition** — define the user, problem, accepted input, output, and explicit V0.1 exclusions.
-- [ ] **0.2 V0.1 architecture** — draw the architecture and defend component boundaries and failure ownership.
-- [ ] **0.3 Core concepts** — define agent, tool, model, and harness in ArchAgent's own terms.
-- [ ] **0.4 Project setup** — initialize the repository and establish the minimal Python, formatting, linting, typing, testing, and ADR workflow.
+- [x] **0.1 Product definition** — define the user, problem, accepted input, output, and explicit V0.1 exclusions.
+- [x] **0.2 V0.1 architecture** — draw the architecture and defend component boundaries and failure ownership.
+- [x] **0.3 Core concepts** — define agent, tool, model, and harness in ArchAgent's own terms.
+- [x] **0.4 Project setup** — initialize the repository and establish the minimal Python, formatting, linting, typing, testing, and ADR workflow.
 
 Exit condition: the owner can explain what V0.1 is, how its major pieces interact, and why its initial development environment was chosen.
 
 ## Phase 1 — Tool system, without an LLM (~7 hours)
 
-- [ ] **1.1 Tool contract** — decide what tools expose, receive, return, how errors appear, and how discovery and invocation work.
-- [ ] **1.2 File listing** — define behavior and tests, then implement repository file discovery.
-- [ ] **1.3 File reading** — design and implement safe repository file access, including boundaries and failures.
-- [ ] **1.4 Code search** — implement lexical repository search; no semantic or vector search.
-- [ ] **1.5 Tool registry** — design discovery and invocation without a growing conditional chain.
-- [ ] **1.6 Tool testing** — review unit, integration, failure, and security-related coverage.
-- [ ] **1.7 Refactor** — add no behavior; extract only abstractions demonstrated by existing code.
+- [x] **1.1 Tool contract** — decide what tools expose, receive, return, how errors appear, and how discovery and invocation work.
+- [x] **1.2 File listing** — define behavior and tests, then implement repository file discovery.
+- [x] **1.3 File reading** — design and implement safe repository file access, including boundaries and failures.
+- [x] **1.4 Code search** — implement lexical repository search; no semantic or vector search.
+- [x] **1.5 Tool registry** — design discovery and invocation without a growing conditional chain.
+- [x] **1.6 Tool testing** — review unit, integration, failure, and security-related coverage.
+- [x] **1.7 Refactor** — add no behavior; extract only abstractions demonstrated by existing code.
 
 Exit condition: tools can be discovered and invoked through a tested contract without any model involvement.
 
 ## Phase 2 — Model boundary and structured output (~5 hours)
 
-- [ ] **2.1 Model interface** — design a boundary that does not fundamentally bind ArchAgent to one provider.
-- [ ] **2.2 First model interaction** — make and inspect the simplest request and response before hiding details.
-- [ ] **2.3 Structured output** — require and validate machine-readable model output.
-- [ ] **2.4 Failure handling** — explore malformed output, missing fields, timeouts, and provider errors; assign ownership.
-- [ ] **2.5 Model tests** — design deterministic model-boundary tests without relying on live calls for every run.
+- [x] **2.1 Model interface** — design a boundary that does not fundamentally bind ArchAgent to one provider.
+- [x] **2.2 First model interaction** — make and inspect the simplest request and response before hiding details.
+- [x] **2.3 Structured output** — require and validate machine-readable model output.
+- [x] **2.4 Failure handling** — explore malformed output, missing fields, timeouts, and provider errors; assign ownership.
+- [x] **2.5 Model tests** — design deterministic model-boundary tests without relying on live calls for every run.
 
 Exit condition: model-facing behavior has an explicit, provider-conscious contract with understood failure paths.
 
 ## Phase 3 — First agent loop (~6 hours)
 
-- [ ] **3.1 Define an agent** — decide what makes this system an agent rather than a chatbot and record the decision.
-- [ ] **3.2 Single tool call** — implement question → model → tool request → execution → observation → model → answer.
+- [x] **3.1 Define an agent** — decide what makes this system an agent rather than a chatbot and record the decision.
+- [~] **3.2 Single tool call** — implement question → model → tool request → execution → observation → model → answer.
 - [ ] **3.3 Multiple tool calls** — permit iterative investigation and encounter termination problems deliberately.
 - [ ] **3.4 Context** — decide what returns to the model each iteration and observe context growth.
 - [ ] **3.5 Failure cases** — exercise repeated calls, missing tools, invalid arguments, tool exceptions, and nontermination.

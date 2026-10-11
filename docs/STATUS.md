@@ -1,36 +1,576 @@
 # Project Status
 
-Last updated: 2026-09-22
+Last updated: 2026-10-04
 
 ## Current position
 
-- **Phase:** 0 — Think before coding
-- **Block:** 0.1 — Product definition
-- **State:** Ready to begin
-- **Application code:** None
-- **Repository state:** Planning documents created; Git has not yet been initialized
+- **Phase:** 3 — First agent loop
+- **Block:** 3.2 — Single tool call (reopened; integration gap found)
+- **State:** The deterministic harness and its tests are implemented, and the suite reports 258 passed with one skipped live-model check. A walkthrough found that `OllamaModel` still rejects nonempty tool context, so the real second model call cannot yet receive a tool observation. Black, Ruff, and strict mypy pass.
+- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. Known model failures become controlled agent failures, retryable model failures share a run-wide budget, and unexpected exceptions propagate.
+- **Repository state:** Commit `7c8f5be` contains the harness and passing isolated tests but records Block 3.2 as complete prematurely. The context-translation gap is documented in the current working tree.
 
 ## Next action
 
-Open [PHASE_0_WORKBOOK.md](PHASE_0_WORKBOOK.md) and draft one-to-three-sentence answers to the five Block 0.1 product-definition questions. Do not research competitors first.
-
-After drafting, ask an AI collaborator to challenge the definition's assumptions and boundaries without rewriting it.
+Continue Block 3.2 by defining how one completed `ToolInteraction` translates
+into Ollama's assistant tool-call and tool-result message sequence. Add focused
+adapter tests and a deterministic harness/adapter integration test before
+re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
 
 ## Current constraints
 
-- Do not implement application code before completing and reviewing Blocks 0.1–0.3.
+- Keep Phase 1 free of model calls; tool behavior must be deterministic and testable on its own.
+- Begin with the three V0.1 repository tools only: `list_files`, `read_file`, and `search_code`.
+- Treat repository paths and contents as untrusted input and keep all access read-only and repository-confined.
 - Do not choose an agent framework, model provider, retrieval system, or final finding schema yet.
 - Keep the evidence-validation question unresolved until Phase 4 so it remains a genuine design exercise.
 
 ## Open questions
 
-- Who exactly is the V0.1 user?
-- What single problem should V0.1 solve well?
-- What repository inputs and question formats are accepted?
-- What observable output counts as success?
-- Which attractive capabilities are explicitly excluded?
+- What persistent development-environment fix should replace the temporary
+  `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-04 — Block 3.2 single-tool design and implementation
+
+- Chose a reusable harness configured with a model, allowed registry, agent
+  instructions, and model retry limit. Every run owns fresh question, context,
+  retry-budget, and outcome state.
+- Kept public outcomes minimal: `AgentSuccess(answer)` or
+  `AgentFailure(code, message)`. Chain-of-thought, repository paths, and partial
+  traces are not public result fields.
+- Allowed immediate text answers. Otherwise the harness executes at most one
+  registry-mediated tool proposal, returns its structured success or failure to
+  the model as context, and requires the next response to be a final answer.
+- A second tool proposal returns `tool_call_limit_reached` without execution.
+  Multiple sequential tool calls remain the deliberate subject of Block 3.3.
+- Added two run-wide retries for retryable model failures. Exhaustion returns
+  `model_retry_exhausted`; non-retryable failures retain their safe provider-
+  independent code and message; unexpected exceptions propagate.
+- Added 16 deterministic cases covering results and configuration, both success
+  paths, tool observations, call limits, model failure and retry paths, fresh
+  run state, and unexpected exceptions.
+- The owner reported that the full deterministic suite passes with 258 tests and
+  one skipped opt-in live-model check. Black, Ruff, and strict mypy pass. Marked
+  Block 3.2 complete.
+- Corrected the canonical owner test command to
+  `PYTHONPATH=src uv run pytest ...` in the collaborator agreement and workflow
+  documents; direct `.venv/bin/pytest` handoffs are no longer used.
+- A later walkthrough traced the response types through `OllamaModel` and found
+  that its Phase 2 `unsupported_request` guard still rejects all nonempty
+  context. The scripted harness tests therefore prove orchestration mechanics
+  but not compatibility with the real adapter's second request. Reopened Block
+  3.2; the next design task is translating one completed tool interaction into
+  Ollama messages and adding a deterministic cross-boundary test.
+
+### 2026-10-04 — Block 3.1 agent definition
+
+- Revisited the Phase 0 agent, model, harness, and tool definitions against the
+  boundaries actually implemented in Phases 1 and 2.
+- Defined the agent as the complete investigating system, not the model alone.
+  The probabilistic model proposes actions; the deterministic harness owns the
+  loop, in-memory run state, registry-mediated execution, recovery policy, and
+  termination.
+- Confirmed that registry and ordinary tool failures return to the model as
+  structured observations within deterministic limits. Intermediate failures
+  do not go directly to the user. Unexpected programming defects propagate.
+- Defined the harness contract as a bounded investigation returning a nonempty
+  answer or controlled failure and outlined deterministic fake-model tests.
+  Real-model investigation quality remains an agent-evaluation concern.
+- Added the Phase 3 workbook and marked Block 3.1 complete. No application code
+  or tests changed.
+
+### 2026-10-03 — Block 2.5 model-test portfolio review
+
+- Reviewed 22 provider-independent and 29 Ollama-specific deterministic cases.
+  The cases cover distinct contracts and stages; no duplication justified removal.
+- Identified empty text without a tool call as an invalid no-action response.
+  Added a nonempty `TextResponse` invariant and focused regression case.
+- Kept the default suite independent of Ollama and probabilistic model behavior.
+- Added one explicitly marked live integration smoke test, skipped unless
+  `ARCHAGENT_RUN_LIVE_MODEL_TESTS=1` is set. It checks only boundary shape and
+  metadata, not wording or model quality.
+- Recorded that the live smoke test is an integration check rather than an agent
+  evaluation. Final verification: the default suite reported 242 passed and one
+  skipped live check; the separately enabled live check passed with 242 tests
+  deselected. Black, Ruff, and strict mypy pass. Marked Block 2.5 and Phase 2
+  complete.
+
+### 2026-10-03 — Block 2.4 provider failure handling
+
+- Assigned safe stable codes and retryability for authentication, missing model,
+  rate limit, other HTTP rejection, provider unavailability, timeout, and invalid
+  response conditions.
+- Kept retry execution outside the adapter. `OllamaModel` makes one attempt and
+  reports guidance for the future harness.
+- Split transport handling from JSON decoding and response validation so each
+  failure stage maps to its correct owner.
+- Close normal and HTTP error response streams. Messages omit provider bodies,
+  URLs, prompts, local paths, and underlying exception details.
+- Catch only understood HTTP, URL, timeout, and validation failures. Unexpected
+  programming exceptions still propagate.
+- Added 15 focused cases across HTTP categories, connection and timeout forms,
+  malformed provider data, resource closure, one-attempt behavior, and unexpected
+  defects. Final verification: the owner reported all 241 tests pass. Black,
+  Ruff, and strict mypy also pass. Marked Block 2.4 complete.
+
+### 2026-10-03 — Block 2.3 native structured tool requests
+
+- Chose Ollama's native function schema and `message.tool_calls` format instead
+  of prompting for free-form JSON.
+- Mapped public tool metadata into JSON Schema, including required arguments,
+  defaults, `minLength`, and `additionalProperties`. Repository containment
+  remains a deterministic registry/tool responsibility.
+- Preserved the V0.1 single-action rule: text or exactly one tool request. Mixed,
+  multiple, malformed, and unknown-tool responses become retryable
+  `invalid_response` failures.
+- Added common response metadata to `ToolRequest`. Preserve a provider call ID
+  when present and generate an opaque fallback only when omitted.
+- A raw live response and a later call through the implemented adapter both
+  produced `list_files` with an empty path. This demonstrates that native schemas
+  do not replace registry validation. Neither interaction executed the tool.
+- Added focused deterministic schema and response-shape cases. Final
+  verification: the owner reported all 226 tests pass. Black, Ruff, and strict
+  mypy also pass. Marked Block 2.3 complete.
+
+### 2026-10-03 — Block 2.2 direct Ollama interaction
+
+- Verified the local Ollama service and installed model name `qwen2.5:7b`.
+- Chose direct HTTP through the standard library and `/api/chat` so the provider
+  request and response mechanics remain visible and the endpoint can later
+  support structured tool requests.
+- Sent and inspected a minimal raw request. The model returned `"ready"` plus
+  model identity, token counts, stop reason, and provider timing fields.
+- Added immutable provider-independent response metadata for model name, input
+  tokens, output tokens, and stop reason. Provider-specific timing stays outside
+  the core interface.
+- Added configurable `OllamaModel` with local defaults, a 60-second timeout,
+  non-streaming text translation, and controlled rejection of context or tool
+  definitions before contacting Ollama.
+- Added 12 deterministic cases for metadata invariants, exact HTTP translation,
+  custom configuration, unsupported requests, and configuration invariants.
+- Verified the adapter itself against local `qwen2.5:7b`; it returned the
+  expected `TextResponse`. Final verification: the owner reported all 220 tests
+  pass. Black, Ruff, and strict mypy also pass. Marked Block 2.2 complete.
+
+### 2026-10-03 — Block 2.1 model interface design and implementation
+
+- Chose separate request fields for instructions, question, typed context, and
+  immutable tool metadata. Context retains matching structured tool requests and
+  results instead of flattening them into prompt text.
+- Chose exactly one action per response for V0.1: immutable `TextResponse` or
+  `ToolRequest`. Requests carry a nonempty opaque provider/adapter-supplied ID,
+  tool name, and read-only copied arguments.
+- Tool results repeat the request ID and tool name; completed interactions reject
+  mismatches. The model receives metadata only and cannot execute a tool through
+  this interface.
+- Chose a synchronous structural `Protocol`. Provider, model, credentials,
+  timeout, retry settings, and initial output limit belong to adapter
+  configuration. The future harness owns retry decisions.
+- Known provider or response problems use immutable `ModelFailure` values with
+  stable codes, safe messages, and a retryable flag. Unexpected defects remain
+  exceptions.
+- Added the Phase 2 workbook and 18 focused boundary cases. Final verification:
+  the owner reported all 208 tests pass. Black, Ruff, and strict mypy also pass.
+  Marked Block 2.1 complete.
+
+### 2026-10-03 — Block 1.7 refactor and Phase 1 completion
+
+- Reviewed repetition across listing, reading, search, and the registry before
+  changing code. Kept limit checks, path display formatting, filesystem failure
+  translation, result records, search traversal, and registry responsibilities
+  local because their similarities did not justify new abstractions.
+- Identified repository resolution and containment as the one repeated security
+  contract demonstrated by both listing and reading.
+- Added internal `_paths.py` helpers that establish a resolved repository
+  boundary and resolve later targets against that retained boundary. A dedicated
+  internal exception reports containment violations without choosing a public
+  tool failure message.
+- Listing and reading translate that exception into their existing public
+  failures and continue to own type checks, filesystem operations, race checks,
+  and operation-specific exception meanings. Search benefits through composition.
+- Added eight focused tests for contained paths, parent and symlink semantics,
+  absolute/parent/symlink escapes, missing targets, permission propagation, and
+  retaining an already established root.
+- Final verification: the owner reported all 190 tests pass. Black, Ruff, and
+  strict mypy pass. Marked Block 1.7 and Phase 1 complete.
+
+### 2026-10-03 — Block 1.6 portfolio review and gap implementation
+
+- Reviewed all 178 tests through overlapping unit, contract, integration,
+  failure, and security lenses. The repeated cases exercise different layers;
+  no duplication justified removal.
+- Used Python's line tracer only to locate unexercised implementation code. It
+  reported 100% executable-line coverage in the three repository tools and
+  shared results, plus 97% in the registry. The registry misses are defensive
+  wrapper checks, an unused extra-argument mode, and one platform-specific setup
+  branch; line coverage did not drive tests for those lines.
+- Added explicit rejection of negative `list_files` entry limits and NUL-bearing
+  repository path arguments.
+- Added adversarial replacement tests for a requested directory and file being
+  exchanged for outside symlinks between validation and access. Listing now
+  resolves the opened directory again before iteration. Reading rechecks
+  containment and compares the opened file identity with the current target
+  before consuming bytes.
+- Clarified the serialization contract with an actual `json.dumps` assertion
+  over metadata converted through `dataclasses.asdict`; discovery records remain
+  immutable typed dataclasses.
+- Final verification: the owner reported all 182 tests pass. Black, Ruff, and
+  strict mypy pass. Marked Block 1.6 complete.
+
+### 2026-10-03 — Block 1.5 implementation and completion
+
+- Collaboratively designed registry entries, exact-type validation, tuple
+  construction, first-error failures, path constraints, defaults, alphabetical
+  discovery, unknown-tool recovery, typed adapters, read-only arguments,
+  repository setup, overlap rules, and initialization errors.
+- Added `ToolRegistry`, immutable definition/discovery records, a read-only
+  lookup, validation and default filling, and typed invocation adapters.
+- Added separate repository setup that strictly resolves roots, rejects symmetric
+  protected-source overlap, binds all three tools, and constructs their agreed
+  public definitions.
+- Added 40 registry/setup tests covering definition consistency, immutability,
+  discovery privacy, strict validation, defaults, all three real invocations,
+  failures, retained resolved roots, overlap, and safe startup errors.
+- Focused tests passed on the first behavior run. Mypy exposed annotation gaps
+  in metadata construction and test helpers; those were tightened. Review then
+  improved strict startup resolution and rejected incompatible or duplicate
+  constraints.
+- Final verification: `PYTHONPATH=src .venv/bin/pytest -q` reported 178 passed.
+  Black, Ruff, and strict mypy pass. Marked Block 1.5 complete.
+
+### 2026-10-03 — Block 1.5 collaborative design begins
+
+- The owner requested working through the registry together after code-search
+  completion. Reviewed existing agreements: fixed name-to-definition mapping,
+  immutable metadata, metadata-only discovery, validation before invocation,
+  duplicate-name rejection, and controlled unknown-tool handling.
+- Begin with the owner's proposed entry structure and request flow. No registry
+  implementation or tests have been added.
+- The owner identified name, description, and path argument metadata; clarified
+  that entries also retain the callable and that argument definitions are separate
+  from per-request values.
+- The owner chose strict validation: incorrect argument types are rejected
+  without coercion, and invalid requests must never invoke the callable.
+- The owner chose exact built-in type matching so Booleans and integers cannot
+  be accepted for one another under Python's subclass rules.
+- The owner accepted public metadata for all three tools, including nonempty
+  path constraints, empty-query support, optional hidden flags, and no extras.
+- The owner accepted symmetric resolved-path overlap rejection: a target cannot
+  equal, contain, or sit inside the protected ArchAgent source tree. Separate
+  non-overlapping clones remain allowed.
+- After reviewing `Callable`, the owner chose uniform typed adapters. Each
+  adapter accepts validated arguments and makes an explicitly typed tool call;
+  the registry avoids a broad `Callable[..., ToolResult]` boundary.
+- The owner chose a read-only validated/default-filled argument mapping for
+  adapters. Added the proposed registry and repository-setup test inventory.
+- The owner accepted `target_permission_denied` and
+  `invalid_protected_source_root`; unexpected setup defects propagate.
+- The owner chose `invalid_tool_definition` for inconsistent or unsupported
+  registry metadata. The contract is now ready for verification-plan review.
+- The owner proposed tuple input for construction so duplicate tool definitions
+  remain visible before the name lookup mapping is created.
+- The owner chose first-error validation reporting using `invalid_arguments` and
+  a safe message in `ToolFailure`. Unknown names retain `unknown_tool`.
+- The owner chose nonempty constraints specifically for path arguments, keeping
+  empty search queries valid. Repository-relative paths remain required by the
+  common contract; filesystem safety checks remain with the tools.
+- The owner chose a separate repository setup function to validate the target,
+  retain its resolved root, bind the tools, and build the generic registry.
+- The owner chose a dedicated initialization exception carrying a stable code
+  and safe message. Runtime request failures remain `ToolFailure` results.
+- The owner accepted `target_not_found`, `target_not_a_directory`,
+  `target_overlaps_archagent`, and `duplicate_tool_name` as startup codes.
+- The owner chose registry-owned default filling before invocation. Argument
+  metadata must distinguish no default from values such as `False` or `None`.
+- The owner chose alphabetical discovery with immutable serializable metadata.
+  Callables, repository roots, and internal validation functions stay private.
+- The owner chose an `unknown_tool` message containing the requested name and
+  alphabetically ordered available names, without invoking a callable.
+
+### 2026-10-03 — Block 1.4 implementation and completion
+
+- The owner authorized finishing code search without further participation,
+  including remaining routine contract choices, implementation, and verification.
+- Implemented recursive literal, case-sensitive search with hidden entries
+  excluded by default, optional inclusion, and no `.gitignore` interpretation.
+- Added immutable match, skip, and success records. Results use one-based line
+  numbers, preserve line whitespace and caller aliases, and report explicit
+  truncation only after another matching line is discovered.
+- Reused listing and reading tools with an explicit traversal stack. Each listing
+  receives the remaining global entry budget; hidden entries and links count
+  before filtering. Unsupported/oversized files and special objects are reported
+  as skips. Access failures return controlled failures without partial matches.
+- Added 55 search tests. The initial run found a case-insensitive filesystem
+  fixture collision; corrected the filenames. The full suite then passed:
+  `PYTHONPATH=src .venv/bin/pytest -q` reported 138 passed.
+- Black, Ruff, and strict mypy pass. Marked Block 1.4 complete and set Block 1.5
+  registry design as the next action. No registry implementation was added.
+
+### 2026-10-03 — Block 1.4 design begins
+
+- Reviewed existing search requirements: lexical search, read-only repository
+  access, and the common tool contract. Detailed search behavior is still open.
+- Started with query semantics and case handling. No code-search implementation
+  or tests have been added.
+- The owner chose grep-style behavior implemented in Python. Matching lines
+  should be reported with structured file paths, line numbers, and text.
+  Literal case-sensitive matching and recursive directory scope are proposed.
+- The owner agreed to recursive search under a required repository-relative
+  directory path, using `"."` for the repository root. Symlink traversal is next.
+- The owner agreed to skip discovered symlinks. Explicitly requested internal
+  directory symlinks may be followed with caller-path preservation; outside
+  requested targets are rejected. Unsupported/oversized-file handling is next.
+- The owner accepted skipping unsupported and oversized files with explicit
+  paths and reasons, while permission failures or disappearing files stop the
+  search with a controlled failure and no partial matches.
+- The owner chose bounded partial results with `truncated=True` when the match
+  limit is exceeded. Match-cap and traversal-budget values are next.
+- The owner accepted starting limits of 100 matching lines and 1,000 examined
+  entries, with controlled `search_too_large` for traversal-budget overflow.
+- Added proposed exact result fields, visibility rules, and a test inventory for
+  final review. Matching semantics remain explicitly proposed pending review.
+
+### 2026-10-03 — Block 1.3 completion
+
+- The owner confirmed the full test suite passes after file-reading implementation.
+  Black, Ruff, and mypy also pass.
+- Marked Block 1.3 complete and advanced the next action to Block 1.4 lexical
+  code-search design. No code-search implementation has been added.
+
+### 2026-10-03 — Block 1.3 implementation
+
+- The owner accepted the result shape and test inventory before implementation.
+- Added immutable `ReadFileSuccess(path, content)` and repository-bound
+  `ReadFileTool` with a configurable default limit of 256 KiB.
+- Implemented resolved containment and regular-file checks, bounded binary
+  reading, size validation, NUL rejection, strict UTF-8 decoding, exact line
+  endings, caller-path preservation, and specific safe filesystem failures.
+- Added the accepted tests, including symlink and parent traversal, unsupported
+  contents, exact and exceeded byte limits, actual default-limit cases, bounded
+  reads during simulated growth, permission failures, disappearance, directory
+  replacement, immutable results, unchanged contents, and unexpected exceptions.
+- Reject negative byte limits; a zero limit permits only an empty file.
+- Black, Ruff, and full mypy checks pass. Pytest has not been run for Block 1.3;
+  the owner will run it. Changes are uncommitted.
+
+### 2026-10-03 — Block 1.3 design begins
+
+- Reviewed the common tool contract and learning workflow. File reading already
+  promises exact text, a repository-relative result path, immutable success or
+  controlled failure, repository confinement, and no modifications.
+- The owner chose strict UTF-8; invalid bytes return `unsupported_content`
+  without encoding guesses or replacement characters. Recorded this in the
+  Block 1.3 workbook.
+- The owner selected 256 KiB (262,144 bytes) as the starting per-file limit.
+  Oversized files return `file_too_large` with no partial contents; bounded reads
+  inspect at most the limit plus one byte. Remaining contract choices are next.
+- The owner agreed to reject NUL-containing content as `unsupported_content`,
+  including content that would otherwise decode as UTF-8. This heuristic does
+  not claim to detect all binary formats.
+- The owner agreed to internal file-symlink access with caller-path preservation,
+  rejection of outside targets, `file_not_found` for missing targets, and
+  `not_a_file` for directory or special-object targets.
+- Proposed immutable success fields and a test inventory in the workbook;
+  verification design is next before implementation.
+  No file-reading code or tests have been added.
+
+### 2026-10-03 — Block 1.2 completion
+
+- The owner confirmed the full expanded test suite passes, including caller-path
+  regression coverage. Black, Ruff, and mypy checks also pass.
+- Marked Block 1.2 complete in the roadmap and advanced the next action to the
+  Block 1.3 `read_file` design exercise. No file-reading code has been added.
+
+### 2026-10-03 — Caller-path regression coverage
+
+- Added the three agreed cases: ordinary parent traversal preserves the caller
+  path; a symlink followed by `..` lists the target's parent while preserving
+  the alias; parent traversal through a symlink that resolves outside is rejected.
+- The symlink-parent fixture includes a root-only file so an incorrect lexical
+  normalization would produce visibly different results.
+- Application code already expresses this contract and needed no further edits.
+- Black, Ruff, and full mypy checks pass. The owner will run the expanded suite.
+
+### 2026-10-03 — Permission failures, entry limits, and coverage review
+
+- The owner requested a walkthrough of design choices with AI implementation,
+  and proposed testing the limit with a large directory.
+- Used `os.scandir()` for streaming enumeration with deterministic closure.
+  All immediate entries count toward the limit, including hidden entries.
+  The first excess entry produces `directory_too_large` without a partial result.
+- Added safe `permission_denied` handling for resolution and directory access.
+  Specific filesystem exceptions are caught; unexpected defects propagate.
+- Added a real 1,001-entry directory test, exact-limit and hidden-entry tests,
+  and an instrumented test for stopping and closing after the first excess entry.
+- Expanded coverage for permission failures during resolution, opening, and
+  iteration; unexpected errors; empty and explicitly hidden directories;
+  `.gitignore` independence and unchanged file contents; named pipes; outside
+  paths; ordinary invalid paths; and disappearing directories or symlink targets.
+- Added a narrow mypy suppression to the existing immutability test because its
+  intentional assignment must reach runtime to verify `FrozenInstanceError`.
+- Black, Ruff, and full mypy checks pass. The expanded pytest suite has not yet
+  been run; the owner ran the earlier 13 focused tests successfully.
+- The owner clarified that caller-path preservation was already decided:
+  results use the supplied path, while resolution governs access and boundary
+  checks. `..` remains in returned paths; the workbook now makes this explicit.
+  No new normalization design is required. Shared request-shape validation
+  remains assigned to Block 1.5.
+
+### 2026-10-03 — Requested-path symlink failures
+
+- The owner authorized AI-written code for this session.
+- Added tests for outside, dangling, and file symlinks used as the requested
+  directory. The owner reported 11 passing tests and two expected failures:
+  uncaught `FileNotFoundError` and `NotADirectoryError`.
+- Wrapped directory iteration to translate those two exceptions into the agreed
+  controlled failures. Repository containment remains checked before listing;
+  failure messages do not expose absolute filesystem paths.
+- Ran Black on both changed Python files and Ruff across the repository; both
+  completed successfully. The owner then confirmed all 13 focused `list_files`
+  tests pass. Changes are uncommitted.
+
+### 2026-09-26 — Formatting and quality checks
+
+- The owner reported that Black, Ruff, mypy, and pytest all pass.
+- Pytest requires the temporary `PYTHONPATH=src` workaround in this checkout;
+  the owner confirmed `PYTHONPATH=src uv run pytest` passes with 2 tests.
+- Set the next action to designing and adding a failing test for hidden-entry
+  behavior; implementation remains incomplete.
+
+### 2026-09-26 — Hidden-entry test design
+
+- The owner added root-level and requested-subdirectory tests for default
+  filtering and `include_hidden=True`.
+- `PYTHONPATH=src uv run pytest` collected 6 tests: 4 passed and the 2 tests
+  checking default hidden-entry exclusion failed because hidden entries are
+  still returned. Hidden-entry filtering remains unimplemented.
+
+### 2026-09-26 — Hidden-entry filtering
+
+- Implemented filtering for dot-prefixed entries: they are excluded by default
+  and included when `include_hidden=True`.
+- Added tests for root and explicitly requested subdirectory listings, covering
+  both default filtering and inclusion. Listing remains non-recursive.
+- The owner reports all 6 tests pass, along with Black, Ruff, and mypy.
+- Next, commit and push the changes. After that, begin the symlink-classification
+  exercise by defining its contract and proposing tests before implementation.
+
+### 2026-09-27 — Symlink contract design
+
+- Confirmed that listed symlink entries are classified as `symlink` whether
+  they target files, directories, outside paths, or missing paths; entry
+  listing does not follow or expose the target.
+- Confirmed that an explicitly requested symlink directory may be followed
+  only when its resolved target remains inside the declared repository root.
+  Outside targets return `outside_repository`.
+- Chose to preserve the caller's repository-relative symlink path in result
+  directory and entry paths.
+- Defined a requested directory or symlink target disappearing before listing
+  as `directory_not_found`; a dangling symlink encountered as an entry remains
+  a successful symlink listing.
+- Updated the Block 1.2 workbook contract and test plan. Next, add the proposed
+  tests and observe their initial failures before implementing behavior.
+
+### 2026-09-27 — Shared failure result and symlink tests
+
+- Defined shared `ToolFailure` as an immutable result with `code: str` and
+  `message: str`, used alongside tool-specific success results.
+- The owner added the shared-result implementation and reported that its
+  construction/field and immutability tests pass.
+- Added four `list_files` symlink-entry tests in the working tree: links to an
+  in-repository file, an in-repository directory, a dangling target, and an
+  outside file target. Symlink test outcomes have not yet been reported.
+- Next, add tests for symlinks supplied as the requested directory path, then
+  run the focused tests and note the expected failures before implementation.
+
+### 2026-09-28 — Symlink classification and output paths
+
+- The owner updated `list_files` to classify symlink entries before checking
+  file or directory types and to reject requested paths whose resolved targets
+  fall outside the repository root.
+- Added an internal directory-symlink test requiring results to preserve the
+  caller's alias path. The owner reports the path behavior now works.
+- Result entry paths are built from the requested path and child name, while
+  the resolved path remains responsible for filesystem access and containment.
+- Next, add requested-path tests for outside, dangling, and file symlinks and
+  implement the corresponding controlled failure behavior.
+
+### 2026-09-25 — First `list_files` red-green cycle
+
+- Added `src/archagent/tools/list_files.py` and
+  `tests/tools/test_list_files.py` using a repository-bound `ListFilesTool`.
+- Defined `EntryKind`, immutable `ListEntry`, and immutable
+  `ListFilesSuccess` records.
+- Wrote a first test for sorted, non-recursive file and directory listing and
+  observed its expected import and `NotImplementedError` failures.
+- Implemented the smallest happy-path directory iteration, relative-path
+  conversion, entry classification, sorting, and tuple result.
+- Used the failing assertion to find and correct an indentation bug that
+  appended only the final directory entry; the owner confirmed the focused
+  test passes after the correction.
+- Diagnosed a macOS `UF_HIDDEN` interaction that causes Python to skip uv's
+  editable-install `.pth` file. Current test commands require the temporary
+  `PYTHONPATH=src` workaround until a reproducible project-level fix is chosen.
+- Remaining contract behavior and controlled failures are intentionally not yet
+  implemented, and the current files still require formatting and full quality
+  checks before the next commit.
+- The initial source, test, and Block 1.2 documentation were committed and
+  pushed as `6180a3d`; follow-up corrections will require another commit.
+
+### 2026-09-25 — `list_files` contract and test design
+
+- Chose explicit, non-recursive directory exploration with a required
+  repository-relative path and `"."` for the target root.
+- Defined immutable, sorted listing results with normalized paths and file,
+  directory, symlink, and other entry kinds.
+- Added hidden-entry filtering through an optional `include_hidden` argument and
+  deliberately declined to interpret `.gitignore` in V0.1.
+- Defined non-following symlink discovery and repository-boundary validation for
+  explicitly requested symlink directories.
+- Bounded a call at 1,000 examined entries and chose a controlled
+  `directory_too_large` failure instead of silent truncation.
+- Defined controlled listing failures and tests covering success, filtering,
+  ordering, boundaries, security, limits, failures, and unexpected state.
+- Documented the Block 1.2 contract and test plan in
+  `docs/PHASE_1_WORKBOOK.md`; no application code was added.
+
+### 2026-09-24 — Common repository-tool contract
+
+- Defined an immutable, resolved target-repository boundary and assigned
+  filesystem confinement to the repository-tool layer.
+- Chose immutable argument metadata and distinct success and controlled-failure
+  result types.
+- Divided structural request validation from operation-specific path and
+  filesystem validation.
+- Designed a fixed per-run tool registry with unique names, metadata-only
+  discovery, controlled unknown-tool handling, and harness-owned callables.
+- Separated safe model-facing errors from internal traceback and absolute-path
+  logging.
+- Added the policy that an active ArchAgent source checkout cannot be its own
+  target, while a non-overlapping clone may be reviewed.
+- Documented the contract and its construction, success, failure, boundary,
+  security, and read-only test inventory in `docs/PHASE_1_WORKBOOK.md`.
+- Completed Block 1.1 and advanced to Block 1.2.
+
+### 2026-09-23 — Phase 0 project setup
+
+- Selected Python 3.12+, `uv`, `uv_build`, and a `src/archagent` package layout.
+- Configured Black for formatting, Ruff for linting, mypy in strict mode, and pytest with a package-import smoke test.
+- Verified deliberate formatting, linting, and typing failures before applying corrections and confirming passing checks.
+- Recreated the project from commit `eef0098` in a temporary clone with `uv sync --locked`; Black, Ruff, mypy, and pytest all passed.
+- Completed Phase 0 and advanced to Phase 1, Block 1.1.
+
+### 2026-09-23 — Product and architecture definition
+
+- Completed the V0.1 product definition for one evidence-supported architectural question about a local Python repository.
+- Drew and pressure-tested the V0.1 architecture, including loop ownership, run state, failure handling, and read-only repository boundaries.
+- Defined Agent, Tool, Model, and Harness responsibilities and traced a file-reading request across their boundaries.
+- Advanced to Block 0.4; no application code or tests were added.
+- Selected Python 3.12+ to support multiple developer environments, accepting
+  the obligation to avoid newer-only features and eventually test supported
+  minor versions.
 
 ### 2026-09-22 — Planning workspace
 
@@ -43,4 +583,10 @@ After drafting, ask an AI collaborator to challenge the definition's assumptions
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Continue from the documented next action. Follow the learning workflow: challenge my thinking before offering solutions, and update project status when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Phase 2 is complete: the default suite
+> reports 242 passed and one skipped live test; the opt-in Ollama check passes.
+> Black, Ruff, and mypy pass. Begin Block 3.1 by defining the agent and assigning
+> responsibilities among the model, harness, registry, and tools.
+> Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
+> macOS editable-install issue has a persistent fix, and update project status
+> when we finish.

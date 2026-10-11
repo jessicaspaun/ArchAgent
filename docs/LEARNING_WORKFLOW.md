@@ -54,6 +54,24 @@ Consider, without treating this as a mechanical checklist:
 
 A mocked model test can prove the loop handles a tool request correctly. It cannot, by itself, prove that a real model will choose the right tool for an architectural investigation. The latter needs an evaluation.
 
+## Canonical test commands
+
+Run project commands through `uv`. Until the editable-install issue recorded in
+`STATUS.md` is resolved, include `PYTHONPATH=src` explicitly:
+
+```bash
+PYTHONPATH=src uv run pytest -q
+```
+
+For a focused file, put its path before `-q`:
+
+```bash
+PYTHONPATH=src uv run pytest tests/test_agent.py -q
+```
+
+Use `pytest` in the singular. Collaborators should not replace `uv run` with a
+direct `.venv/bin/pytest` command in owner handoffs.
+
 ## End-of-session routine
 
 Before stopping:
