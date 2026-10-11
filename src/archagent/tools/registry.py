@@ -85,8 +85,14 @@ class ToolMetadata:
 class ToolRegistry:
     _definitions: tuple[ToolDefinition, ...]
     _lookup: Mapping[str, ToolDefinition]
+    repository_root: Path | None
 
-    def __init__(self, definitions: tuple[ToolDefinition, ...]) -> None:
+    def __init__(
+        self,
+        definitions: tuple[ToolDefinition, ...],
+        *,
+        repository_root: Path | None = None,
+    ) -> None:
         names = [definition.name for definition in definitions]
         duplicate = next((name for name in names if names.count(name) > 1), None)
         if duplicate is not None:
@@ -104,6 +110,7 @@ class ToolRegistry:
         )
         object.__setattr__(self, "_definitions", ordered)
         object.__setattr__(self, "_lookup", lookup)
+        object.__setattr__(self, "repository_root", repository_root)
 
     def discover(self) -> tuple[ToolMetadata, ...]:
         return tuple(_metadata_for(definition) for definition in self._definitions)
@@ -230,7 +237,8 @@ def create_repository_registry(
                 allow_extra_arguments=False,
                 adapter=invoke_search,
             ),
-        )
+        ),
+        repository_root=root,
     )
 
 

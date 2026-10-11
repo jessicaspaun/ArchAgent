@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from .model import (
     Model,
@@ -9,7 +10,9 @@ from .model import (
     ToolInteraction,
     ToolResultMessage,
 )
-from .tools.registry import ToolRegistry
+from .run_log import RunLog, RunLogError, model_result_record
+from .tools.registry import ToolMetadata, ToolRegistry
+from .tools.results import ToolFailure
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,7 @@ class AgentHarness:
     instructions: str
     max_model_retries: int = 2
     max_tool_calls: int = 4
+    logs_dir: Path = field(kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.instructions:
@@ -54,6 +58,53 @@ class AgentHarness:
 
     def run(self, question: str) -> AgentResult:
         tools = self.registry.discover()
+        # Validate the caller's question before creating any run artifact.
+        ModelRequest(self.instructions, question, tools=tools)
+        try:
+            with RunLog(self.logs_dir, self.registry.repository_root) as log:
+                log.write(
+                    "run_started",
+                    {
+                        "instructions": self.instructions,
+                        "question": question,
+                        "tools": [asdict(tool) for tool in tools],
+                        "max_tool_calls": self.max_tool_calls,
+                        "max_model_retries": self.max_model_retries,
+                    },
+                )
+                try:
+                    outcome = self._run(question, tools, log)
+                    log.write(
+                        "run_finished",
+                        {
+                            "status": (
+                                "success"
+                                if isinstance(outcome, AgentSuccess)
+                                else "failure"
+                            ),
+                            "outcome": asdict(outcome),
+                        },
+                    )
+                except RunLogError:
+                    raise
+                except Exception as error:
+                    try:
+                        log.write(
+                            "run_interrupted", {"exception_type": type(error).__name__}
+                        )
+                    except RunLogError:
+                        pass
+                    raise
+            return outcome
+        except RunLogError:
+            return AgentFailure(
+                "logging_failed",
+                "The investigation stopped because its run log could not be written.",
+            )
+
+    def _run(
+        self, question: str, tools: tuple[ToolMetadata, ...], log: RunLog
+    ) -> AgentResult:
         retries_remaining = self.max_model_retries
         context: tuple[ToolInteraction, ...] = ()
         while True:
@@ -63,7 +114,7 @@ class AgentHarness:
                 context=context,
                 tools=tools,
             )
-            result, retries_remaining = self._generate(request, retries_remaining)
+            result, retries_remaining = self._generate(request, retries_remaining, log)
 
             if isinstance(result, ModelFailure):
                 return _to_agent_failure(result)
@@ -84,13 +135,34 @@ class AgentHarness:
                     result=tool_result,
                 ),
             )
+            log.write(
+                "tool_result",
+                {
+                    "request_id": result.id,
+                    "tool_name": result.tool_name,
+                    "status": (
+                        "failure" if isinstance(tool_result, ToolFailure) else "success"
+                    ),
+                    "result": asdict(tool_result),
+                },
+            )
             context += (interaction,)
 
     def _generate(
-        self, request: ModelRequest, retries_remaining: int
+        self, request: ModelRequest, retries_remaining: int, log: RunLog
     ) -> tuple[ModelResult, int]:
         while True:
+            log.write(
+                "model_request",
+                {
+                    "context_count": len(request.context),
+                    "context_request_ids": [
+                        interaction.request.id for interaction in request.context
+                    ],
+                },
+            )
             result = self.model.generate(request)
+            log.write("model_response", model_result_record(result))
             if not isinstance(result, ModelFailure) or not result.retryable:
                 return result, retries_remaining
             if retries_remaining == 0:

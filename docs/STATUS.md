@@ -5,20 +5,20 @@ Last updated: 2026-10-11
 ## Current position
 
 - **Phase:** 3 — First agent loop
-- **Block:** 3.3 — Multiple tool calls complete; next is 3.4 — Context
-- **State:** The owner authorized collaborator-run pytest for this session: 81 focused tests pass; the full suite reports 294 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy pass.
-- **Application code:** `AgentHarness` runs an explicit loop with a configurable default of four registry attempts, counting controlled failures and repeated calls. It retains ordered interaction snapshots and accepts an answer after the last allowed attempt; an excess tool proposal returns `tool_call_limit_reached` without execution. Model retries remain in their separate run-wide budget. `OllamaModel` translates the full interaction sequence; unexpected exceptions propagate.
-- **Repository state:** Block 3.3 is complete on `feature/block-3-agent-loop`, following Block 3.2 commit `6229120`. The checkpoint contains the loop, deterministic tests, and updated project records; no remote push is part of this session.
+- **Block:** 3.4 — Context complete; next is 3.5 — Failure cases
+- **State:** Under the owner's session-level pytest authorization, the full suite reports 327 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy, including the deterministic example script, pass. The example visibly demonstrates context growth without a live model.
+- **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
+- **Repository state:** Work remains on `feature/block-3-agent-loop` after commits `6229120` (3.2) and `cf43551` (3.3). The Block 3.4 completion checkpoint includes code, tests, a deterministic example, and updated records. The owner requested a push, but GitHub rejected the stored credentials; `gh auth status` confirmed an invalid token for `jessicaspaun`. No push succeeded. A sign-in request is pending with the owner.
 
 ## Next action
 
-Begin Block 3.4 by asking the owner to propose the model-context contract.
-The loop currently sends the original instructions and question, unchanged tool
-metadata, and every completed request/result pair on each model round. Walk
-through a multi-call transcript and observe growth, then discuss what must be
-retained and how oversized context should be handled. Do not add a context
-management abstraction without an observed need. Agree on tests before any
-meaningful implementation; no Block 3.4 design is settled yet.
+After the owner runs `gh auth login -h github.com` and confirms sign-in, retry
+the already authorized push of `feature/block-3-agent-loop` with upstream
+tracking. Do not expose credentials or claim a successful push until verified.
+Then begin Block 3.5 by reviewing the existing deterministic coverage for
+repeated calls, missing tools, invalid arguments, tool exceptions, and
+nontermination. Ask the owner to identify remaining failure cases and agree on
+any changes/tests; do not duplicate already-covered contracts automatically.
 
 ## Current constraints
 
@@ -34,6 +34,40 @@ meaningful implementation; no Block 3.4 design is settled yet.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-11 — Block 3.4 context budget and mandatory run logs
+
+- The owner proposed logs under `logs/` and deterministic context-field
+  selection by the harness. Accepted preserving complete evidence initially
+  after reviewing the loss from metadata-only results or file excerpts without
+  range-reading support. Accepted the proposed boundary/failure tests and
+  explicitly chose stopping on logging failure.
+- Added an adapter-owned exact JSON body guard with a positive configurable
+  `max_request_bytes`, defaulting to 65,536. Oversized requests terminate with
+  non-retryable `context_limit_reached` before network access. This is a byte
+  policy, not a token estimate or allocated-model-window guarantee.
+- Added required keyword-only harness `logs_dir` configuration and per-run
+  JSONL records for initial configuration, model attempts/responses, full tool
+  results, final outcomes, and interruption types. Exclusive opaque filenames,
+  JSON escaping, and the registry's resolved boundary protect log naming and
+  keep logs outside the inspected repository. Git ignores runtime `/logs/`.
+- Understood logging I/O failures produce safe `logging_failed` and stop
+  further calls. Original unexpected exceptions propagate even if interruption
+  logging fails. Prior records remain; failed files may be incomplete.
+- Existing tests use temporary log destinations. Added 33 deterministic cases
+  for byte boundaries, Unicode/escaping, full-request accounting, growth,
+  mandatory logging, retries, rejected proposals, errors, and containment.
+  Final suite: 327 passed, one skipped live check. Black, Ruff, and strict mypy
+  pass, including the example script. No live model was called.
+- Added `scripts/inspect_context_growth.py` and ran it: requests contained
+  2/4/6/8 messages and measured 1,642/1,978/2,302/2,749 encoded bytes. It writes
+  a full local example log under `logs/`. Recorded accepted contract/tradeoffs
+  in ADR-0001 and marked Block 3.4 complete.
+- The owner requested pushing code during this work. A push of completed
+  commits was rejected with invalid GitHub credentials; GitHub CLI also
+  confirmed the invalid stored token. Asked the owner to run
+  `gh auth login -h github.com` while local verification continued. Push remains
+  pending successful authentication.
 
 ### 2026-10-11 — Block 3.3 bounded iterative investigation
 
@@ -640,8 +674,8 @@ meaningful implementation; no Block 3.4 design is settled yet.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.3 is complete on
-> `feature/block-3-agent-loop`: 294 tests pass with one skipped live-model check;
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.4 is complete on
+> `feature/block-3-agent-loop`: 327 tests pass with one skipped live-model check;
 > Black, Ruff, and strict mypy pass. Reconcile the working tree, then begin
-> Block 3.4 by asking the owner to propose the context contract and observe how
-> the current complete transcript grows. Agree on tests before implementation.
+> Block 3.5 failure-case review. The owner also authorized a push, which is
+> pending refreshed GitHub authentication; retry after sign-in is confirmed.

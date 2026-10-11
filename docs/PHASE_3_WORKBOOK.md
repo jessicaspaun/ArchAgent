@@ -235,3 +235,111 @@ collaborator-run pytest for this session; final verification reports 81 focused
 tests passed and 294 passed with one skipped live-model check in the full
 suite. Black, Ruff, and strict mypy pass. No live model was called. Block 3.3 is
 complete; the next exercise is Block 3.4 context design.
+
+## Block 3.4 — Context and investigation logs
+
+### Agreed contract and tradeoff
+
+The owner proposed detailed history under `logs/` and a smaller model context
+of important facts and references, with the harness selecting result fields
+deterministically. Review found that the current fields mainly contain the
+evidence itself: directory entries, file contents, search matches, incompleteness
+flags, and safe failure information. A path alone is not an observation about
+code behavior, and `read_file` cannot currently retrieve a selected line range.
+
+The owner accepted retaining that evidence intact initially, measuring growth,
+and rejecting oversized requests rather than silently dropping or summarizing
+information. Keep instructions, question, public tool definitions, and all
+completed correlated request/result pairs in chronological order. Listings
+retain paths/kinds; reading retains path/content; search retains query,
+matches with paths and line numbers, skipped files, and truncation status;
+failures retain original parameters, code, and safe message. Provider metadata
+is recorded in logs but is not inserted into tool-result content.
+
+### Request-size guard
+
+`OllamaConfig.max_request_bytes` is a positive integer with a default of 65,536
+bytes (64 KiB). `OllamaModel` measures the complete encoded JSON HTTP body,
+including the model field, instructions, question, schemas, history, formatting,
+and JSON escaping. The exact limit is allowed; one byte over returns a
+non-retryable `context_limit_reached` before network access. This makes the
+adapter the owner of provider-specific encoding and the harness the owner of
+termination, without adding a size-estimation requirement to the model protocol.
+
+This is an application byte budget, not a tokenizer or a guarantee of fitting
+Ollama's allocated token window. It does not configure `num_ctx` or promise that
+the provider preserves all input within its own capacity.
+
+### Run logging
+
+`AgentHarness` requires a keyword-only `logs_dir: Path`, supplied by the trusted
+caller. For the checkout, use the application-owned `logs/` directory:
+
+```python
+harness = AgentHarness(model, registry, instructions, logs_dir=Path("logs"))
+```
+
+The repository factory retains its resolved root on the registry so the log
+writer can reject direct or symlink-resolved locations inside the inspected
+repository before creating anything. Generic registries have no repository
+boundary; their caller owns the choice of a trusted destination.
+
+Each run creates one opaque UUID-named `.jsonl` file with exclusive creation.
+Question text, arguments, and repository content cannot determine its name.
+Records contain the initial instructions/question/tool metadata and limits,
+each model attempt's history count and request IDs, model responses including
+proposals/failures/metadata, full correlated tool results, and the final outcome.
+The ordered records reconstruct the model's provider-independent request
+history without duplicating full file contents on every retry or iteration.
+These logs are not raw HTTP traces, persistent agent memory, or model-readable
+tools. Runtime `/logs/` artifacts are ignored by Git.
+
+Each record is JSON-escaped and flushed before continuing. Known creation,
+write, flush, and normal-close failures stop the run with safe `logging_failed`.
+No further model or tool call occurs; earlier records are retained. The owner
+explicitly chose stopping rather than continuing without a record. Failed logs
+may end with a partial record or lack a terminal event; flushing is not an
+`fsync` durability guarantee. A normal-close failure can occur after a terminal
+record was written, so the caller's `logging_failed` outcome takes precedence.
+
+Unexpected defects remain exceptions. Log their type as `run_interrupted` when
+possible and re-raise the original exception even if writing or closing the log
+also fails. Exception details and tracebacks are not recorded in this block.
+
+### Verification and observed growth
+
+The owner accepted tests for requests below/at/above the byte limit, growth
+after observations, complete and separate run logs, and log-write failures.
+Added tests for Unicode/escaping, the entire request rather than just context,
+retries without tool re-execution, hostile record content, rejected proposals,
+interruption handling, filesystem cleanup/failures, exclusive creation, and
+direct/symlink repository-boundary rejection.
+
+All harness tests explicitly use temporary log destinations outside their
+target repositories. Verification on 2026-10-11, under the owner's session
+pytest authorization: 327 passed and one skipped opt-in live-model check. Black,
+Ruff, and strict mypy (including the example script) pass. No live model was
+called. The context/log contract is recorded in ADR-0001.
+
+Run the repeatable deterministic example from the project root:
+
+```bash
+PYTHONPATH=src uv run python scripts/inspect_context_growth.py
+```
+
+The example investigates a temporary fixture with list/read/search tools,
+simulates HTTP responses, and writes a full run log under the checkout's
+`logs/`. Observed request growth:
+
+| Model round | Completed interactions | Messages | Encoded body bytes |
+| --- | --- | --- | --- |
+| 1 | 0 | 2 | 1,642 |
+| 2 | 1 | 4 | 1,978 |
+| 3 | 2 | 6 | 2,302 |
+| 4 | 3 | 8 | 2,749 |
+
+These measurements include schemas and JSON escaping and are not token counts.
+The scripted answer is not an agent evaluation. An integration test separately
+uses a larger file result and a 4,096-byte request limit: the initial call
+succeeds, the tool result is fully logged, and the second call is blocked before
+network access. Block 3.4 is complete; next is Block 3.5 failure-case review.

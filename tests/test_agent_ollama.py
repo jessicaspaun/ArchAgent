@@ -10,7 +10,7 @@ import pytest
 import archagent.ollama as ollama_module
 import archagent.tools.read_file as read_module
 from archagent.agent import AgentFailure, AgentHarness, AgentSuccess
-from archagent.ollama import OllamaModel
+from archagent.ollama import OllamaConfig, OllamaModel
 from archagent.tools.registry import create_repository_registry
 from archagent.tools.results import ToolFailure
 
@@ -50,6 +50,7 @@ def test_harness_and_ollama_complete_one_real_registry_interaction(
     call_id: str | None,
     expected_status: str,
     expected_code: str | None,
+    logs_dir: Path,
 ) -> None:
     target = tmp_path / "target"
     protected = tmp_path / "protected"
@@ -83,9 +84,9 @@ def test_harness_and_ollama_complete_one_real_registry_interaction(
 
     monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
 
-    result = AgentHarness(OllamaModel(), registry, "Inspect repository data.").run(
-        "Where is state?"
-    )
+    result = AgentHarness(
+        OllamaModel(), registry, "Inspect repository data.", logs_dir=logs_dir
+    ).run("Where is state?")
 
     assert result == AgentSuccess("Final answer")
     assert len(captured) == 2
@@ -125,8 +126,7 @@ def test_harness_and_ollama_complete_one_real_registry_interaction(
 
 
 def test_uncontrolled_tool_error_propagates_without_a_follow_up_model_call(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logs_dir: Path
 ) -> None:
     target = tmp_path / "target"
     protected = tmp_path / "protected"
@@ -167,16 +167,16 @@ def test_uncontrolled_tool_error_propagates_without_a_follow_up_model_call(
     monkeypatch.setattr(read_module.ReadFileTool, "read_file", broken_read)
 
     with pytest.raises(RuntimeError, match="Unexpected tool defect"):
-        AgentHarness(OllamaModel(), registry, "Investigate.").run("Where is state?")
+        AgentHarness(OllamaModel(), registry, "Investigate.", logs_dir=logs_dir).run(
+            "Where is state?"
+        )
 
     assert calls == 1
 
 
 @pytest.mark.parametrize("ending", ["before_limit", "at_limit", "excess_request"])
 def test_harness_and_ollama_preserve_multiple_real_tool_observations(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    ending: str,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ending: str, logs_dir: Path
 ) -> None:
     target = tmp_path / "target"
     protected = tmp_path / "protected"
@@ -243,9 +243,9 @@ def test_harness_and_ollama_preserve_multiple_real_tool_observations(
     monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
     monkeypatch.setattr(read_module.ReadFileTool, "read_file", recording_read)
 
-    result = AgentHarness(OllamaModel(), registry, "Inspect repository data.").run(
-        "Where is state?"
-    )
+    result = AgentHarness(
+        OllamaModel(), registry, "Inspect repository data.", logs_dir=logs_dir
+    ).run("Where is state?")
 
     if ending == "excess_request":
         assert isinstance(result, AgentFailure)
@@ -317,8 +317,7 @@ def test_harness_and_ollama_preserve_multiple_real_tool_observations(
 
 
 def test_real_repository_boundary_failure_is_retained_when_the_model_recovers(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logs_dir: Path
 ) -> None:
     target = tmp_path / "target"
     protected = tmp_path / "protected"
@@ -372,9 +371,9 @@ def test_real_repository_boundary_failure_is_retained_when_the_model_recovers(
     monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
     registry = create_repository_registry(target, protected)
 
-    result = AgentHarness(OllamaModel(), registry, "Investigate.").run(
-        "Where is state?"
-    )
+    result = AgentHarness(
+        OllamaModel(), registry, "Investigate.", logs_dir=logs_dir
+    ).run("Where is state?")
 
     assert result == AgentSuccess("Recovered answer")
     assert len(captured) == 3
@@ -392,3 +391,89 @@ def test_real_repository_boundary_failure_is_retained_when_the_model_recovers(
     }
     assert "outside-secret" not in json.dumps(captured)
     assert secret.read_text(encoding="utf-8") == "outside-secret"
+
+
+def test_context_growth_stops_before_network_and_keeps_full_result_in_log(
+    tmp_path: Path,
+    logs_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    content = 'λ\n"quoted"\n' * 300
+    (target / "app.py").write_text(content, encoding="utf-8")
+    registry = create_repository_registry(target, protected)
+    network_requests: list[bytes] = []
+
+    @contextmanager
+    def fake_urlopen(request: Request, timeout: float) -> Iterator[BytesIO]:
+        assert isinstance(request.data, bytes)
+        network_requests.append(request.data)
+        with BytesIO(
+            provider_response(
+                {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": {"path": "app.py"},
+                            },
+                        }
+                    ],
+                }
+            )
+        ) as stream:
+            yield stream
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    model = OllamaModel(OllamaConfig(max_request_bytes=4096))
+
+    result = AgentHarness(model, registry, "Inspect data.", logs_dir=logs_dir).run(
+        "Question"
+    )
+
+    assert isinstance(result, AgentFailure)
+    assert result.code == "context_limit_reached"
+    assert len(network_requests) == 1
+    assert len(network_requests[0]) <= 4096
+    paths = list(logs_dir.glob("*.jsonl"))
+    assert len(paths) == 1
+    records = [json.loads(line) for line in paths[0].read_text().splitlines()]
+    assert [
+        record["context_count"]
+        for record in records
+        if record["event"] == "model_request"
+    ] == [0, 1]
+    tool_result = next(record for record in records if record["event"] == "tool_result")
+    assert tool_result["result"] == {"path": "app.py", "content": content}
+    assert records[-1]["outcome"]["code"] == "context_limit_reached"
+    assert (target / "app.py").read_text(encoding="utf-8") == content
+
+
+def test_harness_refuses_logs_inside_the_repository_before_model_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    registry = create_repository_registry(target, protected)
+
+    def forbidden_urlopen(request: Request, timeout: float) -> BytesIO:
+        pytest.fail("An invalid log destination must stop before network access")
+
+    monkeypatch.setattr(ollama_module, "urlopen", forbidden_urlopen)
+
+    result = AgentHarness(
+        OllamaModel(), registry, "Inspect data.", logs_dir=target / "logs"
+    ).run("Question")
+
+    assert isinstance(result, AgentFailure)
+    assert result.code == "logging_failed"
+    assert registry.repository_root == target.resolve()
+    assert list(target.iterdir()) == []

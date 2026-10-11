@@ -22,6 +22,7 @@ class OllamaConfig:
     model: str = "qwen2.5:7b"
     base_url: str = "http://127.0.0.1:11434"
     timeout_seconds: float = 60.0
+    max_request_bytes: int = 64 * 1024
 
     def __post_init__(self) -> None:
         if not self.model:
@@ -30,6 +31,8 @@ class OllamaConfig:
             raise ValueError("Ollama base URL must be nonempty")
         if self.timeout_seconds <= 0:
             raise ValueError("Ollama timeout must be positive")
+        if type(self.max_request_bytes) is not int or self.max_request_bytes <= 0:
+            raise ValueError("Maximum request bytes must be a positive integer")
         object.__setattr__(self, "base_url", self.base_url.rstrip("/"))
 
 
@@ -45,9 +48,16 @@ class OllamaModel:
         }
         if request.tools:
             payload["tools"] = [_tool_schema(tool) for tool in request.tools]
+        request_bytes = json.dumps(payload).encode("utf-8")
+        if len(request_bytes) > self.config.max_request_bytes:
+            return ModelFailure(
+                code="context_limit_reached",
+                message="The encoded model request exceeds the byte limit.",
+                retryable=False,
+            )
         http_request = Request(
             f"{self.config.base_url}/api/chat",
-            data=json.dumps(payload).encode("utf-8"),
+            data=request_bytes,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
