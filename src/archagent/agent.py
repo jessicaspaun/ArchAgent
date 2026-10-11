@@ -7,7 +7,6 @@ from .model import (
     ModelResult,
     TextResponse,
     ToolInteraction,
-    ToolRequest,
     ToolResultMessage,
 )
 from .tools.registry import ToolRegistry
@@ -43,57 +42,49 @@ class AgentHarness:
     registry: ToolRegistry
     instructions: str
     max_model_retries: int = 2
+    max_tool_calls: int = 4
 
     def __post_init__(self) -> None:
         if not self.instructions:
             raise ValueError("Agent instructions must be nonempty")
         if self.max_model_retries < 0:
             raise ValueError("Maximum model retries must be non-negative")
+        if type(self.max_tool_calls) is not int or self.max_tool_calls < 0:
+            raise ValueError("Maximum tool calls must be a non-negative integer")
 
     def run(self, question: str) -> AgentResult:
         tools = self.registry.discover()
         retries_remaining = self.max_model_retries
-        initial_request = ModelRequest(
-            instructions=self.instructions,
-            question=question,
-            tools=tools,
-        )
-        initial_result, retries_remaining = self._generate(
-            initial_request, retries_remaining
-        )
-
-        if isinstance(initial_result, ModelFailure):
-            return _to_agent_failure(initial_result)
-        if isinstance(initial_result, TextResponse):
-            return AgentSuccess(initial_result.text)
-
-        tool_result = self.registry.invoke(
-            initial_result.tool_name, initial_result.arguments
-        )
-        interaction = ToolInteraction(
-            request=initial_result,
-            result=ToolResultMessage(
-                request_id=initial_result.id,
-                tool_name=initial_result.tool_name,
-                result=tool_result,
-            ),
-        )
-        follow_up_request = ModelRequest(
-            instructions=self.instructions,
-            question=question,
-            context=(interaction,),
-            tools=tools,
-        )
-        follow_up_result, _ = self._generate(follow_up_request, retries_remaining)
-
-        if isinstance(follow_up_result, ModelFailure):
-            return _to_agent_failure(follow_up_result)
-        if isinstance(follow_up_result, ToolRequest):
-            return AgentFailure(
-                code="tool_call_limit_reached",
-                message="The agent reached the one-tool-call limit for this run.",
+        context: tuple[ToolInteraction, ...] = ()
+        while True:
+            request = ModelRequest(
+                instructions=self.instructions,
+                question=question,
+                context=context,
+                tools=tools,
             )
-        return AgentSuccess(follow_up_result.text)
+            result, retries_remaining = self._generate(request, retries_remaining)
+
+            if isinstance(result, ModelFailure):
+                return _to_agent_failure(result)
+            if isinstance(result, TextResponse):
+                return AgentSuccess(result.text)
+            if len(context) >= self.max_tool_calls:
+                return AgentFailure(
+                    code="tool_call_limit_reached",
+                    message="The agent reached the tool-call limit for this run.",
+                )
+
+            tool_result = self.registry.invoke(result.tool_name, result.arguments)
+            interaction = ToolInteraction(
+                request=result,
+                result=ToolResultMessage(
+                    request_id=result.id,
+                    tool_name=result.tool_name,
+                    result=tool_result,
+                ),
+            )
+            context += (interaction,)
 
     def _generate(
         self, request: ModelRequest, retries_remaining: int

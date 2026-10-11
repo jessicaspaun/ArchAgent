@@ -5,19 +5,20 @@ Last updated: 2026-10-11
 ## Current position
 
 - **Phase:** 3 — First agent loop
-- **Block:** 3.2 — Single tool call complete; next is 3.3 — Multiple tool calls
-- **State:** The owner authorized collaborator-run pytest for this session: 57 focused tests pass; the full suite reports 270 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy pass. The adapter context-translation gap is resolved.
-- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. `OllamaModel` now translates completed interactions into ordered assistant tool-call and tool-result messages, preserving names, arguments, IDs, success data, and controlled failure codes/messages. Retry policy and unexpected exception propagation remain harness responsibilities.
-- **Repository state:** Block 3.2 is complete on `feature/block-3-agent-loop`, based on merged `main` commit `334d923`. The completion checkpoint includes adapter translation, deterministic tests, and updated project records; no remote push is part of this session.
+- **Block:** 3.3 — Multiple tool calls complete; next is 3.4 — Context
+- **State:** The owner authorized collaborator-run pytest for this session: 81 focused tests pass; the full suite reports 294 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy pass.
+- **Application code:** `AgentHarness` runs an explicit loop with a configurable default of four registry attempts, counting controlled failures and repeated calls. It retains ordered interaction snapshots and accepts an answer after the last allowed attempt; an excess tool proposal returns `tool_call_limit_reached` without execution. Model retries remain in their separate run-wide budget. `OllamaModel` translates the full interaction sequence; unexpected exceptions propagate.
+- **Repository state:** Block 3.3 is complete on `feature/block-3-agent-loop`, following Block 3.2 commit `6229120`. The checkpoint contains the loop, deterministic tests, and updated project records; no remote push is part of this session.
 
 ## Next action
 
-Begin Block 3.3 by asking the owner to propose the bounded multiple-tool-call
-contract. Discuss how the harness retains ordered interactions, counts tool
-proposals, allows a final answer after the last permitted execution, and
-terminates repeated requests. Preserve the run-wide model-retry budget and
-fresh state across runs. Ask what tests would establish those guarantees before
-implementation; no Block 3.3 design has been agreed yet.
+Begin Block 3.4 by asking the owner to propose the model-context contract.
+The loop currently sends the original instructions and question, unchanged tool
+metadata, and every completed request/result pair on each model round. Walk
+through a multi-call transcript and observe growth, then discuss what must be
+retained and how oversized context should be handled. Do not add a context
+management abstraction without an observed need. Agree on tests before any
+meaningful implementation; no Block 3.4 design is settled yet.
 
 ## Current constraints
 
@@ -33,6 +34,29 @@ implementation; no Block 3.3 design has been agreed yet.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-11 — Block 3.3 bounded iterative investigation
+
+- The owner chose four tool attempts by default, counted failed and repeated
+  calls, and allowed a final answer after the last permitted observation.
+  Proposed tests for successful investigations below/at the limit, failures,
+  repetition, and exceeding four calls.
+- Replaced the harness's two fixed model stages with an explicit loop and
+  immutable chronological interaction snapshots. Added configurable
+  `max_tool_calls` after the existing retry setting, preserving its positional
+  meaning. Zero allows an answer-only run; invalid limits are rejected.
+- Checked text answers before the budget guard and guarded every registry
+  invocation. Failed and unknown-tool attempts consume the same budget as
+  successful attempts. Model retries neither consume tool attempts nor reset
+  the remaining retry budget. Unexpected defects still propagate.
+- Observed 20 expected failures and 15 passes with new contracts against the
+  old implementation. Added scripted tests and real harness/adapter/repository
+  integration cases for ordered histories, custom limits, failure recovery,
+  later errors, final-answer retries, fresh runs, and boundary containment.
+- Under the owner's session-level pytest authorization, final verification
+  reports 81 focused tests passed and 294 passed with one skipped opt-in live
+  check in the full suite. Black, Ruff, and strict mypy pass. No live model was
+  called. Marked Block 3.3 complete and advanced to Block 3.4 context design.
 
 ### 2026-10-11 — Block 3.2 adapter context translation
 
@@ -616,8 +640,8 @@ implementation; no Block 3.3 design has been agreed yet.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.2 is complete on
-> `feature/block-3-agent-loop`: 270 tests pass with one skipped live-model check;
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.3 is complete on
+> `feature/block-3-agent-loop`: 294 tests pass with one skipped live-model check;
 > Black, Ruff, and strict mypy pass. Reconcile the working tree, then begin
-> Block 3.3 by asking the owner to propose the multiple-tool-call contract and
-> termination policy. Agree on tests before implementation.
+> Block 3.4 by asking the owner to propose the context contract and observe how
+> the current complete transcript grows. Agree on tests before implementation.

@@ -9,9 +9,10 @@ import pytest
 
 import archagent.ollama as ollama_module
 import archagent.tools.read_file as read_module
-from archagent.agent import AgentHarness, AgentSuccess
+from archagent.agent import AgentFailure, AgentHarness, AgentSuccess
 from archagent.ollama import OllamaModel
 from archagent.tools.registry import create_repository_registry
+from archagent.tools.results import ToolFailure
 
 
 def provider_response(message: dict[str, object]) -> bytes:
@@ -169,3 +170,225 @@ def test_uncontrolled_tool_error_propagates_without_a_follow_up_model_call(
         AgentHarness(OllamaModel(), registry, "Investigate.").run("Where is state?")
 
     assert calls == 1
+
+
+@pytest.mark.parametrize("ending", ["before_limit", "at_limit", "excess_request"])
+def test_harness_and_ollama_preserve_multiple_real_tool_observations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    ending: str,
+) -> None:
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    content = "state = {}\n"
+    (target / "app.py").write_text(content, encoding="utf-8")
+    registry = create_repository_registry(target, protected)
+    attempts = 3 if ending == "before_limit" else 4
+    proposals: list[tuple[str, dict[str, object]]] = [
+        ("list_files", {"path": "."}),
+        ("search_code", {"path": ".", "query": "state"}),
+        ("read_file", {"path": "app.py"}),
+        ("read_file", {"path": "app.py"}),
+    ]
+    messages: list[dict[str, object]] = [
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": f"call-{index}",
+                    "function": {"name": name, "arguments": arguments},
+                }
+            ],
+        }
+        for index, (name, arguments) in enumerate(proposals[:attempts])
+    ]
+    if ending == "excess_request":
+        messages.append(
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "excess",
+                        "function": {
+                            "name": "read_file",
+                            "arguments": {"path": "never-read.py"},
+                        },
+                    }
+                ],
+            }
+        )
+    else:
+        messages.append({"content": "State is stored in app.py."})
+    responses = iter(provider_response(message) for message in messages)
+    captured: list[list[dict[str, object]]] = []
+    reads: list[str] = []
+    original_read = read_module.ReadFileTool.read_file
+
+    def recording_read(
+        self: read_module.ReadFileTool,
+        path: str,
+    ) -> read_module.ReadFileSuccess | ToolFailure:
+        reads.append(path)
+        return original_read(self, path)
+
+    @contextmanager
+    def fake_urlopen(request: Request, timeout: float) -> Iterator[BytesIO]:
+        assert isinstance(request.data, bytes)
+        captured.append(json.loads(request.data)["messages"])
+        with BytesIO(next(responses)) as stream:
+            yield stream
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(read_module.ReadFileTool, "read_file", recording_read)
+
+    result = AgentHarness(OllamaModel(), registry, "Inspect repository data.").run(
+        "Where is state?"
+    )
+
+    if ending == "excess_request":
+        assert isinstance(result, AgentFailure)
+        assert result.code == "tool_call_limit_reached"
+    else:
+        assert result == AgentSuccess("State is stored in app.py.")
+    # search_code also reads app.py once while gathering matches.
+    assert reads == ["app.py"] * (attempts - 1)
+    assert len(captured) == attempts + 1
+    for index, transcript in enumerate(captured):
+        assert len(transcript) == 2 + 2 * index
+        if index:
+            assert transcript[:-2] == captured[index - 1]
+            name, arguments = proposals[index - 1]
+            assistant, observation = transcript[-2:]
+            assert assistant == {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": f"call-{index - 1}",
+                        "function": {"name": name, "arguments": arguments},
+                    }
+                ],
+            }
+            assert observation["role"] == "tool"
+            assert observation["tool_name"] == name
+            assert observation["tool_call_id"] == f"call-{index - 1}"
+    outcomes = []
+    for observation in captured[-1][3::2]:
+        raw_content = observation["content"]
+        assert isinstance(raw_content, str)
+        outcomes.append(json.loads(raw_content))
+    assert outcomes[0] == {
+        "status": "success",
+        "data": {
+            "directory": ".",
+            "entries": [{"path": "app.py", "kind": "file"}],
+        },
+    }
+    assert outcomes[1] == {
+        "status": "success",
+        "data": {
+            "directory": ".",
+            "query": "state",
+            "matches": [
+                {
+                    "path": "app.py",
+                    "line_number": 1,
+                    "text": "state = {}",
+                }
+            ],
+            "skipped": [],
+            "truncated": False,
+        },
+    }
+    assert all(
+        outcome
+        == {
+            "status": "success",
+            "data": {
+                "path": "app.py",
+                "content": content,
+            },
+        }
+        for outcome in outcomes[2:]
+    )
+    assert (target / "app.py").read_text(encoding="utf-8") == content
+
+
+def test_real_repository_boundary_failure_is_retained_when_the_model_recovers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "target"
+    protected = tmp_path / "protected"
+    target.mkdir()
+    protected.mkdir()
+    secret = tmp_path / "secret.py"
+    secret.write_text("outside-secret", encoding="utf-8")
+    (target / "app.py").write_text("state = {}", encoding="utf-8")
+    responses = iter(
+        [
+            provider_response(
+                {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "outside",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": {"path": "../secret.py"},
+                            },
+                        }
+                    ],
+                }
+            ),
+            provider_response(
+                {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "inside",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": {"path": "app.py"},
+                            },
+                        }
+                    ],
+                }
+            ),
+            provider_response({"content": "Recovered answer"}),
+        ]
+    )
+    captured: list[list[dict[str, object]]] = []
+
+    @contextmanager
+    def fake_urlopen(request: Request, timeout: float) -> Iterator[BytesIO]:
+        assert isinstance(request.data, bytes)
+        captured.append(json.loads(request.data)["messages"])
+        with BytesIO(next(responses)) as stream:
+            yield stream
+
+    monkeypatch.setattr(ollama_module, "urlopen", fake_urlopen)
+    registry = create_repository_registry(target, protected)
+
+    result = AgentHarness(OllamaModel(), registry, "Investigate.").run(
+        "Where is state?"
+    )
+
+    assert result == AgentSuccess("Recovered answer")
+    assert len(captured) == 3
+    assert len(captured[-1]) == 6
+    failed_content = captured[-1][3]["content"]
+    assert isinstance(failed_content, str)
+    failed = json.loads(failed_content)
+    assert failed["status"] == "failure"
+    assert failed["error"]["code"] == "outside_repository"
+    success_content = captured[-1][5]["content"]
+    assert isinstance(success_content, str)
+    assert json.loads(success_content) == {
+        "status": "success",
+        "data": {"path": "app.py", "content": "state = {}"},
+    }
+    assert "outside-secret" not in json.dumps(captured)
+    assert secret.read_text(encoding="utf-8") == "outside-secret"

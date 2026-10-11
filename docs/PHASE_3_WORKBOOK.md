@@ -167,3 +167,71 @@ pytest this session. The focused suite reports 57 passed; the full suite reports
 pass. The translation and deterministic integration gap is resolved; Block 3.2
 is complete. No live model was called, and model investigation quality remains
 an evaluation concern.
+
+## Block 3.3 — Multiple tool calls
+
+### Agreed contract
+
+The owner chose a configurable tool-attempt limit, defaulting to four, with
+failed and repeated requests consuming the budget. After the last allowed
+attempt, the model gets an opportunity to return a final answer.
+
+`AgentHarness.run()` now loops over one model action at a time:
+
+1. Construct a request with the original instructions, question, tool metadata,
+   and all completed interactions in chronological order.
+2. Generate a response using the remaining run-wide model-retry budget.
+3. Return a nonempty text answer or terminal model failure immediately.
+4. For a tool proposal, check the attempt limit before invoking the registry.
+   If exhausted, return `tool_call_limit_reached` without executing or adding
+   an observation for the excess proposal.
+5. Otherwise invoke the registry, retain the correlated success or controlled
+   failure, and continue.
+
+The limit counts registry attempts, including invalid parameters, unknown tools,
+operation-specific failures, and repeated calls with identical parameters.
+Provider failures and retries do not consume tool attempts. Retries use the same
+model request and do not re-execute an already completed tool. A successful
+iteration does not replenish either budget.
+
+Text answers are accepted before checking the tool budget so the last allowed
+observation can lead to an answer. Tools remain offered on that last model
+request; if the model proposes another call, the harness enforces termination.
+With tool limit N and model retry budget R, the run makes at most N + 1 logical
+model requests and N + 1 + R model attempts. Default limits permit at most four
+registry attempts and seven model attempts. This bounds execution, not answer
+quality or the model's willingness to finish.
+
+The configurable limit must be a non-negative integer; booleans, negative
+values, floats, and strings are rejected. Zero allows an immediate answer but
+rejects any tool proposal. Every run starts with fresh history and both budgets.
+Unexpected model or tool exceptions propagate immediately.
+
+History is retained as immutable tuple snapshots. Earlier model requests do not
+change when later interactions are appended. No context selection, truncation,
+summarization, or persistent storage is introduced here; observing context
+growth remains Block 3.4.
+
+### Deterministic test plan
+
+The owner proposed successful investigations below and at the limit, failed
+tool calls, repeated calls, and an attempted fifth call. Added boundary and
+cross-component coverage for custom limits (one and six), zero attempts,
+invalid settings, invalid-argument recovery, exhausted failure budgets,
+later model failures, retries on the final answer opportunity, exceptions
+after prior observations, and fresh state across runs.
+
+Harness tests use scripted models and recording tools. Integration tests use
+the real harness, Ollama adapter, registry, and repository tools with simulated
+HTTP responses. They cover list/search/read sequences below and at four calls,
+an excess request without execution, full ordered transcript preservation, and
+recovery after a real repository-boundary failure without exposing outside
+file contents.
+
+Verification on 2026-10-11: after adding the new contracts, the old single-call
+implementation reported 20 expected failures and 15 passes. The bounded-loop
+implementation then passed the focused tests. The owner authorized
+collaborator-run pytest for this session; final verification reports 81 focused
+tests passed and 294 passed with one skipped live-model check in the full
+suite. Black, Ruff, and strict mypy pass. No live model was called. Block 3.3 is
+complete; the next exercise is Block 3.4 context design.
