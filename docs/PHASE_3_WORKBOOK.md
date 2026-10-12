@@ -343,3 +343,87 @@ The scripted answer is not an agent evaluation. An integration test separately
 uses a larger file result and a 4,096-byte request limit: the initial call
 succeeds, the tool result is fully logged, and the second call is blocked before
 network access. Block 3.4 is complete; next is Block 3.5 failure-case review.
+
+## Block 3.5 — Failure cases
+
+### Reviewed contract
+
+The owner confirmed that a missing tool produces `unknown_tool` as a model
+observation and consumes one tool attempt. Repeated failed attempts cannot
+avoid the default four-attempt limit. After the fourth completed observation,
+the model may still return a final answer to the user. A further tool proposal
+terminates with `tool_call_limit_reached` before registry invocation.
+
+Controlled tool failures, including permission failures and invalid arguments,
+remain observations that permit recovery within the budget. Unexpected model
+or tool exceptions stop the run and propagate to the caller. Tests should
+verify both propagation and the absence of further model or tool calls.
+
+### Existing coverage reviewed
+
+- `tests/test_agent.py` covers repeated requests, unknown-tool observations,
+  exhaustion for tool failures/invalid arguments/unknown tools, recovery from
+  invalid arguments, answers at the attempt limit, zero/custom limits,
+  run-wide retry exhaustion, and exceptions before or after observations.
+- `tests/test_agent_ollama.py` covers actual registry/adapter failure translation,
+  invalid argument types and extra fields, repository-boundary failure and
+  recovery, and an unexpected tool exception without a follow-up model call.
+- `tests/test_agent_logs.py` covers logging of controlled failures and rejected
+  proposals, retries without tool re-execution, and stopping on logging failure.
+
+The five failure topics named in this block already have deterministic
+coverage. Further configuration review found a termination gap:
+`max_model_retries` only rejects negative values, so a fractional float such
+as 1.5 is accepted and decrementing it never reaches the equality-to-zero
+exhaustion guard. Positive infinity and NaN likewise defeat that guard.
+Python's integer annotation does not perform runtime validation.
+
+The owner accepted requiring a non-negative integer and rejecting booleans,
+matching the tool-attempt limit contract, and authorized the proposed test
+strategy and implementation. Zero permits the initial model attempt without
+any retries. Invalid configuration raises `ValueError` at construction before
+model/tool calls or log creation.
+
+### Implementation checkpoint
+
+`AgentHarness.__post_init__` now checks the exact integer type before testing
+non-negativity. This rejects booleans (which subclass integers), floats,
+non-finite values, and incompatible types before comparison or retry arithmetic.
+
+Added nine invalid-input cases: -1, 1.5, 1.0, positive infinity, NaN, `True`,
+`False`, `"2"`, and `None`. Added two valid boundary cases with repeated
+retryable failures: zero retries gives one model attempt; one retry gives two.
+Both return `model_retry_exhausted`, reuse the same request, and execute no
+tools. The scripted models contain an extra response so excess retries are
+detectable without relying on a live model. Existing default-two-retry and
+run-wide budget tests remain in place; the old negative-count case is now
+included in the invalid-input group rather than duplicated.
+
+Black, Ruff, strict mypy for source/tests/scripts, and `git diff --check` pass.
+The owner ran the full suite on 2026-10-12; no live model was called:
+
+```bash
+PYTHONPATH=src uv run pytest -q
+```
+
+Observed result: 337 passed and one skipped opt-in live-model check in 0.67s.
+Block 3.5 is complete.
+
+## Block 3.6 — Agent tests
+
+Separate evidence of deterministic software correctness from evidence of model
+judgment and investigation quality. Begin by classifying these checks and
+explaining what each passing result would establish:
+
+1. A scripted model repeatedly requests tools; the harness refuses a fifth
+   attempt after four completed tool observations.
+2. A real model investigates a small repository to answer where state is
+   stored; review whether it selected useful tools and supported its answer
+   with inspected evidence.
+3. The existing opt-in live Ollama check asks for the word "ready" and asserts
+   a nonempty `TextResponse` with valid response metadata.
+
+The owner should propose the classifications and limitations first, then
+propose a small evaluation task and what evidence would make its result
+convincing. Evaluation design remains open; no evaluation runner, scoring
+scheme, finding schema, or evidence-validation mechanism has been chosen.

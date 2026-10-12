@@ -47,8 +47,8 @@ Exit condition: model-facing behavior has an explicit, provider-conscious contra
 - [x] **3.2 Single tool call** — implement question → model → tool request → execution → observation → model → answer.
 - [x] **3.3 Multiple tool calls** — permit iterative investigation and encounter termination problems deliberately.
 - [x] **3.4 Context** — decide what returns to the model each iteration and observe context growth.
-- [ ] **3.5 Failure cases** — exercise repeated calls, missing tools, invalid arguments, tool exceptions, and nontermination.
-- [ ] **3.6 Agent tests** — separate deterministic loop tests from probabilistic agent evaluations.
+- [x] **3.5 Failure cases** — exercise repeated calls, missing tools, invalid arguments, tool exceptions, and nontermination.
+- [~] **3.6 Agent tests** — separate deterministic loop tests from probabilistic agent evaluations.
 
 Exit condition: a bounded, observable loop can investigate through tools and fail in understood ways.
 

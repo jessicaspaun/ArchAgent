@@ -116,24 +116,39 @@ def test_agent_results_are_validated_and_immutable() -> None:
         AgentFailure("code", "")
 
 
-@pytest.mark.parametrize(
-    ("instructions", "max_model_retries", "message"),
-    [
-        ("", 2, "Agent instructions must be nonempty"),
-        ("Investigate.", -1, "Maximum model retries must be non-negative"),
-    ],
-)
-def test_harness_rejects_invalid_configuration(
-    instructions: str, max_model_retries: int, message: str, logs_dir: Path
-) -> None:
-    with pytest.raises(ValueError, match=message):
+def test_harness_rejects_empty_instructions(logs_dir: Path) -> None:
+    with pytest.raises(ValueError, match="Agent instructions must be nonempty"):
         AgentHarness(
             ScriptedModel([]),
             make_registry(),
-            instructions,
-            max_model_retries,
+            "",
             logs_dir=logs_dir,
         )
+
+
+@pytest.mark.parametrize(
+    "limit", [-1, 1.5, 1.0, float("inf"), float("nan"), True, False, "2", None]
+)
+def test_harness_rejects_invalid_model_retry_limits(
+    limit: object, logs_dir: Path
+) -> None:
+    model = ScriptedModel([])
+    tool = RecordingTool()
+
+    with pytest.raises(
+        ValueError, match="Maximum model retries must be a non-negative integer"
+    ):
+        AgentHarness(
+            model,
+            make_registry(tool),
+            "Investigate.",
+            max_model_retries=limit,  # type: ignore[arg-type]
+            logs_dir=logs_dir,
+        )
+
+    assert model.requests == []
+    assert tool.arguments == []
+    assert not logs_dir.exists()
 
 
 def test_harness_returns_an_immediate_text_answer(logs_dir: Path) -> None:
@@ -274,6 +289,30 @@ def test_harness_exhausts_two_retries_for_the_initial_model_request(
     assert len(model.requests) == 3
     assert model.requests[0] is model.requests[1]
     assert model.requests[1] is model.requests[2]
+
+
+@pytest.mark.parametrize("limit", [0, 1])
+def test_model_retry_limit_allows_exactly_the_configured_retries(
+    limit: int, logs_dir: Path
+) -> None:
+    model = ScriptedModel([retryable_failure() for _ in range(limit + 2)])
+    tool = RecordingTool()
+
+    result = AgentHarness(
+        model,
+        make_registry(tool),
+        "Investigate.",
+        max_model_retries=limit,
+        logs_dir=logs_dir,
+    ).run("Question?")
+
+    assert result == AgentFailure(
+        code="model_retry_exhausted",
+        message="The model could not complete the request within the retry limit.",
+    )
+    assert len(model.requests) == limit + 1
+    assert all(request is model.requests[0] for request in model.requests)
+    assert tool.arguments == []
 
 
 def test_model_retries_are_shared_across_the_entire_run(logs_dir: Path) -> None:

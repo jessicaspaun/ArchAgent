@@ -51,8 +51,8 @@ class AgentHarness:
     def __post_init__(self) -> None:
         if not self.instructions:
             raise ValueError("Agent instructions must be nonempty")
-        if self.max_model_retries < 0:
-            raise ValueError("Maximum model retries must be non-negative")
+        if type(self.max_model_retries) is not int or self.max_model_retries < 0:
+            raise ValueError("Maximum model retries must be a non-negative integer")
         if type(self.max_tool_calls) is not int or self.max_tool_calls < 0:
             raise ValueError("Maximum tool calls must be a non-negative integer")
 

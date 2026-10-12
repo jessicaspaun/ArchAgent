@@ -1,21 +1,22 @@
 # Project Status
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## Current position
 
 - **Phase:** 3 — First agent loop
-- **Block:** 3.4 — Context complete; next is 3.5 — Failure cases
-- **State:** Under the owner's session-level pytest authorization, the full suite reports 327 passed and one skipped opt-in live-model check. Black, Ruff, and strict mypy, including the deterministic example script, pass. The example visibly demonstrates context growth without a live model.
+- **Block:** 3.6 — Deterministic tests versus agent evaluations
+- **State:** Block 3.5 is complete. The owner reports 337 passed and one skipped opt-in live-model check in 0.67s. Retry-limit validation rejects invalid configuration before calls/log creation; zero/one-retry boundaries and existing failure behavior are verified. Black, Ruff, and strict mypy pass, including scripts. Block 3.6 begins with classification of loop tests, investigation-quality evaluations, and live adapter integration checks; owner reasoning is pending.
 - **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
-- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. The owner refreshed GitHub authentication, resolving the earlier push failures.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Block 3.5 is completed locally; its completion commit has not been pushed.
 
 ## Next action
 
-Begin Block 3.5 by reviewing the existing deterministic coverage for
-repeated calls, missing tools, invalid arguments, tool exceptions, and
-nontermination. Ask the owner to identify remaining failure cases and agree on
-any changes/tests; do not duplicate already-covered contracts automatically.
+Continue Block 3.6 in `docs/PHASE_3_WORKBOOK.md`. Ask the owner to classify the
+three example checks and explain what each proves and leaves unproven. Then
+ask for a proposed small evaluation task and convincing evidence of quality,
+reviewing its contract and verification strategy before implementation.
+Do not run pytest without owner request.
 
 ## Current constraints
 
@@ -31,6 +32,55 @@ any changes/tests; do not duplicate already-covered contracts automatically.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-12 — Block 3.5 completion and Block 3.6 opening exercise
+
+- Reconciled the uncommitted retry-limit implementation with the handoff.
+  The owner ran `PYTHONPATH=src uv run pytest -q` and reported 337 passed,
+  one skipped opt-in live check in 0.67s. No live model was called.
+- Marked Block 3.5 complete and advanced the roadmap/workbook to Block 3.6.
+  The opening exercise asks the owner to classify a scripted loop check,
+  investigation-quality review, and live adapter integration check, including
+  the limits of what each establishes. Evaluation design is still open.
+- Reran Black, Ruff, strict mypy for source/tests/scripts, and
+  `git diff --check` before the focused completion commit. Pytest was not
+  rerun by the collaborator. The completion commit remains local.
+
+### 2026-10-11 — Block 3.5 retry-limit validation implementation
+
+- The owner accepted the non-negative-integer retry contract, rejecting
+  booleans and other types, and asked for the proposed tests to be implemented.
+- Added construction-time validation matching the tool-attempt limit. Expanded
+  negative-count coverage to fractional/integral floats, infinity, NaN,
+  booleans, a string, and `None`; invalid configuration makes no model/tool
+  calls and creates no log directory.
+- Added zero/one-retry exhaustion cases checking exact model-attempt counts,
+  reuse of the request, and no tool execution. Preserved existing default and
+  shared-budget tests. There are 11 cases in the two new test groups and a net
+  increase of 10 because the prior negative-count case is incorporated.
+- Black, Ruff, strict mypy for source/tests/scripts, and `git diff --check`
+  pass. No pytest or live model was run. Handed off the full-suite command;
+  expected 337 passed and one skipped live check. Completion/commit await the
+  owner's test results.
+
+### 2026-10-11 — Block 3.5 failure-case review
+
+- Began from a clean working tree. The owner confirmed that unknown-tool
+  failures return to the model, failed attempts consume the four-attempt
+  budget, and a final answer after the fourth failure returns to the user.
+- Distinguished controlled failures from unexpected exceptions. The owner
+  chose stopping for unexpected errors; reviewed propagation and assertions
+  that no later model or tool calls occur.
+- Reviewed repeated-call exhaustion, unknown tools, invalid-argument recovery
+  and exhaustion, exception handling, and bounded model retries. Existing
+  deterministic tests cover these behaviors; added no duplicate tests.
+- Recorded the review in the Phase 3 workbook. No executable code changed,
+  pytest was not run, and the block remains open for any additional failure
+  scenarios the owner identifies.
+- When the owner asked for remaining gaps, found incomplete runtime validation
+  of the model-retry count. Fractional/non-finite budgets can never reach the
+  equality-to-zero exhaustion guard. Proposed matching the tool-limit type
+  contract; design and tests remain to be agreed before implementation.
 
 ### 2026-10-11 — Push completed Block 3 work
 
@@ -680,8 +730,9 @@ any changes/tests; do not duplicate already-covered contracts automatically.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.4 is complete on
-> `feature/block-3-agent-loop`: 327 tests pass with one skipped live-model check;
-> Black, Ruff, and strict mypy pass. Reconcile the working tree, then begin
-> Block 3.5 failure-case review. The branch is pushed to GitHub and tracks
-> `origin/feature/block-3-agent-loop`.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.5 is complete on
+> `feature/block-3-agent-loop`; the owner reports 337 passed and one skipped
+> live check. Continue Block 3.6's classification exercise in the Phase 3
+> workbook, then review the owner's proposed evaluation task and quality
+> criteria. Do not choose a finding schema or evidence-validation mechanism
+> yet. Verify the working tree before editing.
