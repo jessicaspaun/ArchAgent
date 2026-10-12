@@ -423,7 +423,61 @@ explaining what each passing result would establish:
 3. The existing opt-in live Ollama check asks for the word "ready" and asserts
    a nonempty `TextResponse` with valid response metadata.
 
-The owner should propose the classifications and limitations first, then
-propose a small evaluation task and what evidence would make its result
-convincing. Evaluation design remains open; no evaluation runner, scoring
-scheme, finding schema, or evidence-validation mechanism has been chosen.
+The owner correctly classified the checks as code test, agent evaluation, and
+code test, respectively. Reviewed why the property being measured determines
+the classification: the first checks harness enforcement, the second assesses
+investigation quality, and the third checks the live adapter's response
+contract. Using a real model does not by itself make a check an evaluation.
+The live check does not assert that the text is "ready", and it provides no
+evidence of useful tool selection or a grounded architectural answer.
+
+### Initial evaluation criteria
+
+The owner asked for help choosing an architectural question. Used a tiny notes
+application as the working example: "Where does this application store saved
+notes, and which component reads and writes them?" This asks about storage
+and responsibility boundaries rather than individual syntax.
+
+The owner accepted requiring both a correct explanation and supporting
+inspected code for an evaluation to pass. Assess the final answer for the
+storage location and the component responsible for reading/writing. Review
+the logged tool results for code supporting those claims; the presence of a
+tool call alone does not establish support. A correct guess without supporting
+inspection fails this criterion, as does an incorrect answer after inspecting
+relevant code. Exact answer wording or a single prescribed tool sequence is
+not required.
+
+### Accepted manual review method
+
+The owner selected human review using a short checklist. For the notes-app
+question, review these criteria separately:
+
+| Criterion | Passing evidence |
+| --- | --- |
+| Correct explanation | The answer identifies the actual storage location and the component responsible for reading and writing notes. |
+| Support from inspection | Logged tool results contain relevant code supporting those claims; merely listing a filename is insufficient. |
+
+A run passes only when both criteria pass. Different wording and useful tool
+sequences are allowed. Use the fixture's known implementation as the reference,
+not the model's answer. Establish that reference before reviewing the run.
+An execution failure does not pass this task; record its failure code separately
+from any answer-quality judgment.
+
+For each future run, retain the question, fixture version, model/configuration,
+final outcome, and run-log location. Record pass/fail for each criterion with
+a short reason and the supporting log observations. A correct answer without
+supporting inspection fails; an incorrect answer despite relevant inspection
+also fails. A single passing run provides evidence about that run rather than
+a guarantee of consistent performance. Repeated runs can reveal variation.
+
+This is a manual evaluation protocol, not a new deterministic pytest check or
+an automated evidence validator. The default pytest suite remains independent
+of a running model; the live adapter check remains explicitly opt-in. No
+fixture or evaluation runner was added, and no agent evaluation was run.
+Actual demo repositories are planned in Block 4.5; the finding schema and
+evidence-validation mechanism remain Phase 4 design exercises.
+
+Block 3.6 is complete: the owner distinguished code tests from agent evaluations
+and selected initial evaluation criteria and a review method. Phase 3's bounded,
+observable loop has deterministic coverage; agent-quality measurements remain
+future work. Next is Block 4.1's architectural-finding design.

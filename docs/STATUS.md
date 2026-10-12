@@ -4,18 +4,18 @@ Last updated: 2026-10-12
 
 ## Current position
 
-- **Phase:** 3 — First agent loop
-- **Block:** 3.6 — Deterministic tests versus agent evaluations
-- **State:** Block 3.5 is complete. The owner reports 337 passed and one skipped opt-in live-model check in 0.67s. Retry-limit validation rejects invalid configuration before calls/log creation; zero/one-retry boundaries and existing failure behavior are verified. Black, Ruff, and strict mypy pass, including scripts. Block 3.6 begins with classification of loop tests, investigation-quality evaluations, and live adapter integration checks; owner reasoning is pending.
+- **Phase:** 4 — Evidence-based architecture analysis
+- **Block:** 4.1 — Architectural finding; owner design proposal next
+- **State:** Phase 3 is complete. The owner distinguished code tests from agent evaluations and chose manual checklist review requiring a correct explanation plus supporting inspected code. The protocol is documented; no agent evaluation has been run or quality measured. The last code suite remains owner-reported 337 passed and one skipped live check; Black, Ruff, and strict mypy pass. Phase 4 begins with the owner's finding-design proposal, contract, and test strategy.
 - **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
-- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Block 3.5 is completed locally; its completion commit has not been pushed.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Block 3.5 is committed locally as `31a2908` and has not been pushed. Block 3.6 documentation is completed locally; its completion commit has not been pushed.
 
 ## Next action
 
-Continue Block 3.6 in `docs/PHASE_3_WORKBOOK.md`. Ask the owner to classify the
-three example checks and explain what each proves and leaves unproven. Then
-ask for a proposed small evaluation task and convincing evidence of quality,
-reviewing its contract and verification strategy before implementation.
+Begin Block 4.1 in `docs/PHASE_4_WORKBOOK.md`. Ask the owner to propose the
+information an architectural finding should contain, then discuss its contract
+and what tests would convince them it works. Review conceptual issues before
+implementation. Keep later provenance/evidence-validation mechanisms open.
 Do not run pytest without owner request.
 
 ## Current constraints
@@ -23,8 +23,9 @@ Do not run pytest without owner request.
 - Keep Phase 1 free of model calls; tool behavior must be deterministic and testable on its own.
 - Begin with the three V0.1 repository tools only: `list_files`, `read_file`, and `search_code`.
 - Treat repository paths and contents as untrusted input and keep all access read-only and repository-confined.
-- Do not choose an agent framework, model provider, retrieval system, or final finding schema yet.
-- Keep the evidence-validation question unresolved until Phase 4 so it remains a genuine design exercise.
+- Keep the existing low-level model adapter; do not introduce an agent framework or retrieval system.
+- The finding schema is now the Block 4.1 design exercise; the owner proposes it first.
+- Keep the evidence-validation mechanism unresolved until Block 4.4.
 
 ## Open questions
 
@@ -32,6 +33,40 @@ Do not run pytest without owner request.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-12 — Block 3.6 completion and Phase 4 handoff
+
+- The owner accepted manual checklist review. Documented correctness and
+  support criteria, separate judgments and reasons, run records, execution
+  failure handling, and the limits of a single passing run.
+- Marked Block 3.6 and Phase 3 complete for their learning outcomes. No agent
+  evaluation was run, and no quality result is claimed. Demo repositories and
+  evidence-validation mechanisms remain future Phase 4 exercises.
+- Added the Phase 4 workbook opening exercise. Next is the owner's proposal
+  for an architectural finding, its contract, and test strategy.
+- Documentation only. Reran Black, Ruff, and `git diff --check` before the
+  focused completion commit; no pytest or model calls. The commit remains local.
+
+### 2026-10-12 — Block 3.6 evaluation success criteria
+
+- Explained architectural questions through storage, authentication, and
+  failure behavior. Proposed a tiny notes application's storage location and
+  read/write responsibility as the working evaluation example.
+- The owner accepted requiring both a correct explanation and supporting
+  inspected code. Discussed assessing the answer and logged observations
+  together, allowing different wording and useful tool sequences.
+- Grading method is next; human checklist review is proposed, not decided.
+  Updated documentation only; no tests, code changes, or live model calls.
+
+### 2026-10-12 — Block 3.6 test/evaluation classification
+
+- The owner classified the scripted tool-budget check as a code test,
+  investigation-quality review as an agent evaluation, and live Ollama
+  response check as a code test. All classifications are correct.
+- Reviewed the distinction between checking software contracts and assessing
+  model judgment, including the live check's limited assertions. Next is the
+  owner's proposal for a small evaluation task and observable quality criteria.
+- Updated documentation only. No code changes, tests, or model calls.
 
 ### 2026-10-12 — Block 3.5 completion and Block 3.6 opening exercise
 
@@ -730,9 +765,9 @@ Do not run pytest without owner request.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Block 3.5 is complete on
+> Read `AGENTS.md` and `docs/STATUS.md`. Phase 3 is complete on
 > `feature/block-3-agent-loop`; the owner reports 337 passed and one skipped
-> live check. Continue Block 3.6's classification exercise in the Phase 3
-> workbook, then review the owner's proposed evaluation task and quality
-> criteria. Do not choose a finding schema or evidence-validation mechanism
-> yet. Verify the working tree before editing.
+> live check. Manual evaluation criteria are documented, but no agent evaluation
+> has been run. Begin Block 4.1 in the Phase 4 workbook by asking for the owner's
+> finding-design proposal, contract, and test strategy. Keep evidence-validation
+> mechanisms open until Block 4.4. Verify the working tree before editing.
