@@ -44,18 +44,18 @@ Exit condition: model-facing behavior has an explicit, provider-conscious contra
 ## Phase 3 — First agent loop (~6 hours)
 
 - [x] **3.1 Define an agent** — decide what makes this system an agent rather than a chatbot and record the decision.
-- [~] **3.2 Single tool call** — implement question → model → tool request → execution → observation → model → answer.
-- [ ] **3.3 Multiple tool calls** — permit iterative investigation and encounter termination problems deliberately.
-- [ ] **3.4 Context** — decide what returns to the model each iteration and observe context growth.
-- [ ] **3.5 Failure cases** — exercise repeated calls, missing tools, invalid arguments, tool exceptions, and nontermination.
-- [ ] **3.6 Agent tests** — separate deterministic loop tests from probabilistic agent evaluations.
+- [x] **3.2 Single tool call** — implement question → model → tool request → execution → observation → model → answer.
+- [x] **3.3 Multiple tool calls** — permit iterative investigation and encounter termination problems deliberately.
+- [x] **3.4 Context** — decide what returns to the model each iteration and observe context growth.
+- [x] **3.5 Failure cases** — exercise repeated calls, missing tools, invalid arguments, tool exceptions, and nontermination.
+- [x] **3.6 Agent tests** — separate deterministic loop tests from probabilistic agent evaluations.
 
 Exit condition: a bounded, observable loop can investigate through tools and fail in understood ways.
 
 ## Phase 4 — Evidence-based architecture analysis (~5 hours)
 
-- [ ] **4.1 Architectural finding** — design the finding schema.
-- [ ] **4.2 Provenance** — define how findings reference repository evidence.
+- [x] **4.1 Architectural finding** — design the finding schema.
+- [~] **4.2 Provenance** — define how findings reference repository evidence.
 - [ ] **4.3 Architect behavior** — define the architect agent's responsibilities and boundaries.
 - [ ] **4.4 Evidence validation** — design how the system verifies that cited evidence was actually inspected.
 - [ ] **4.5 Demo repositories** — build small, deliberately flawed applications as fixtures for tests and evaluations.

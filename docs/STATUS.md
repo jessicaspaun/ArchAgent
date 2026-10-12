@@ -1,29 +1,32 @@
 # Project Status
 
-Last updated: 2026-10-04
+Last updated: 2026-10-12
 
 ## Current position
 
-- **Phase:** 3 — First agent loop
-- **Block:** 3.2 — Single tool call (reopened; integration gap found)
-- **State:** The deterministic harness and its tests are implemented, and the suite reports 258 passed with one skipped live-model check. A walkthrough found that `OllamaModel` still rejects nonempty tool context, so the real second model call cannot yet receive a tool observation. Black, Ruff, and strict mypy pass.
-- **Application code:** `AgentHarness` accepts an immediate answer or executes at most one registry-mediated tool request before requiring a final answer. Known model failures become controlled agent failures, retryable model failures share a run-wide budget, and unexpected exceptions propagate.
-- **Repository state:** Commit `7c8f5be` contains the harness and passing isolated tests but records Block 3.2 as complete prematurely. The context-translation gap is documented in the current working tree.
+- **Phase:** 4 — Evidence-based architecture analysis
+- **Block:** 4.2 — Provenance; evidence-reference design next
+- **State:** Block 4.1's schema-design exercise is complete: a nonblank claim, at least one supporting location, and limitations that may be empty. Reviewed valid/invalid inputs, multiple locations, explicit gaps, and immutability, following existing frozen results. The evidence entry's structure is the Block 4.2 exercise; executable finding work awaits that contract. No code/tests or agent evaluations were added/run. The last suite remains owner-reported 337 passed and one skipped live check.
+- **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Completed work through Block 4.1 (`db3397a`), including Blocks 3.5 and 3.6 (`31a2908`, `f9b2e7f`), is pushed to GitHub. [Pull request #2](https://github.com/jessicaspaun/ArchAgent/pull/2) is open into `main` for the bounded loop, tool context, request-size limits, run logs, failure coverage, and learning documentation. It has not been merged.
 
 ## Next action
 
-Continue Block 3.2 by defining how one completed `ToolInteraction` translates
-into Ollama's assistant tool-call and tool-result message sequence. Add focused
-adapter tests and a deterministic harness/adapter integration test before
-re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
+Continue Block 4.2 in `docs/PHASE_4_WORKBOOK.md`. Begin with the owner's choice
+of a single line versus an inclusive start/end range for evidence references.
+Review path/range representation, contract, and verification strategy, then
+implement the agreed evidence/finding records through a reviewable checkpoint.
+Keep actual inspection-validation mechanisms open until Block 4.4.
+Do not run pytest without owner request.
 
 ## Current constraints
 
 - Keep Phase 1 free of model calls; tool behavior must be deterministic and testable on its own.
 - Begin with the three V0.1 repository tools only: `list_files`, `read_file`, and `search_code`.
 - Treat repository paths and contents as untrusted input and keep all access read-only and repository-confined.
-- Do not choose an agent framework, model provider, retrieval system, or final finding schema yet.
-- Keep the evidence-validation question unresolved until Phase 4 so it remains a genuine design exercise.
+- Keep the existing low-level model adapter; do not introduce an agent framework or retrieval system.
+- Preserve the agreed claim/evidence/limitations finding shape; evidence-reference structure is the Block 4.2 design exercise.
+- Keep the evidence-validation mechanism unresolved until Block 4.4.
 
 ## Open questions
 
@@ -31,6 +34,228 @@ re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-12 — Branch push and pull request #2
+
+- The owner requested pushing to GitHub and opening a PR. Confirmed a clean
+  working tree, fetched the remote, and found no existing open PR for the
+  branch. Pushed the three local completion commits through `db3397a`.
+- Opened [PR #2](https://github.com/jessicaspaun/ArchAgent/pull/2) into `main`,
+  describing the complete branch scope, required `logs_dir` caller change,
+  byte-limit tradeoff, owner-reported 337 passed/one skipped result, and
+  formatting/lint/type verification. The PR remains open; no merge performed.
+- Updated the handoff to record publication. No application code changed,
+  pytest was not rerun, and no model calls or agent evaluations were made.
+
+### 2026-10-12 — Block 4.1 schema design completion
+
+- The owner accepted requiring at least one supporting location and allowing
+  no limitations when there are no known gaps. Documented the outer finding
+  shape and discussed verification cases, following immutable result records.
+- Marked the schema-design exercise complete. Finding implementation awaits
+  an agreed evidence-reference contract in Block 4.2. The next choice is a
+  single line versus an inclusive range; actual inspection validation stays
+  in Block 4.4.
+- Documentation only. Reran Black, Ruff, and `git diff --check` before the
+  focused completion commit; no pytest, new tests, or live model calls.
+
+### 2026-10-12 — Block 4.1 conceptual finding contract
+
+- Explained why not identifying a writer does not establish its absence.
+  The owner accepted a clear claim, supporting code locations, and explicit
+  evidence gaps as the conceptual finding contract.
+- Distinguished validating representation from proving factual support and
+  actual inspection. Concrete schema rules and tests are next; later evidence
+  validation remains open. Documentation only; no code, tests, or model calls.
+
+### 2026-10-12 — Block 4.1 initial finding proposal
+
+- The owner proposed supporting files, line numbers, and locations where data
+  is read elsewhere. Reviewed the proposal as evidence locations and component
+  relationships; suggested the finding also needs its claim.
+- Required content and incomplete-evidence behavior are the next contract
+  discussion. No schema, provenance representation, or validation mechanism
+  is selected. Updated documentation only; no code, tests, or model calls.
+
+### 2026-10-12 — Block 3.6 completion and Phase 4 handoff
+
+- The owner accepted manual checklist review. Documented correctness and
+  support criteria, separate judgments and reasons, run records, execution
+  failure handling, and the limits of a single passing run.
+- Marked Block 3.6 and Phase 3 complete for their learning outcomes. No agent
+  evaluation was run, and no quality result is claimed. Demo repositories and
+  evidence-validation mechanisms remain future Phase 4 exercises.
+- Added the Phase 4 workbook opening exercise. Next is the owner's proposal
+  for an architectural finding, its contract, and test strategy.
+- Documentation only. Reran Black, Ruff, and `git diff --check` before the
+  focused completion commit; no pytest or model calls. The commit remains local.
+
+### 2026-10-12 — Block 3.6 evaluation success criteria
+
+- Explained architectural questions through storage, authentication, and
+  failure behavior. Proposed a tiny notes application's storage location and
+  read/write responsibility as the working evaluation example.
+- The owner accepted requiring both a correct explanation and supporting
+  inspected code. Discussed assessing the answer and logged observations
+  together, allowing different wording and useful tool sequences.
+- Grading method is next; human checklist review is proposed, not decided.
+  Updated documentation only; no tests, code changes, or live model calls.
+
+### 2026-10-12 — Block 3.6 test/evaluation classification
+
+- The owner classified the scripted tool-budget check as a code test,
+  investigation-quality review as an agent evaluation, and live Ollama
+  response check as a code test. All classifications are correct.
+- Reviewed the distinction between checking software contracts and assessing
+  model judgment, including the live check's limited assertions. Next is the
+  owner's proposal for a small evaluation task and observable quality criteria.
+- Updated documentation only. No code changes, tests, or model calls.
+
+### 2026-10-12 — Block 3.5 completion and Block 3.6 opening exercise
+
+- Reconciled the uncommitted retry-limit implementation with the handoff.
+  The owner ran `PYTHONPATH=src uv run pytest -q` and reported 337 passed,
+  one skipped opt-in live check in 0.67s. No live model was called.
+- Marked Block 3.5 complete and advanced the roadmap/workbook to Block 3.6.
+  The opening exercise asks the owner to classify a scripted loop check,
+  investigation-quality review, and live adapter integration check, including
+  the limits of what each establishes. Evaluation design is still open.
+- Reran Black, Ruff, strict mypy for source/tests/scripts, and
+  `git diff --check` before the focused completion commit. Pytest was not
+  rerun by the collaborator. The completion commit remains local.
+
+### 2026-10-11 — Block 3.5 retry-limit validation implementation
+
+- The owner accepted the non-negative-integer retry contract, rejecting
+  booleans and other types, and asked for the proposed tests to be implemented.
+- Added construction-time validation matching the tool-attempt limit. Expanded
+  negative-count coverage to fractional/integral floats, infinity, NaN,
+  booleans, a string, and `None`; invalid configuration makes no model/tool
+  calls and creates no log directory.
+- Added zero/one-retry exhaustion cases checking exact model-attempt counts,
+  reuse of the request, and no tool execution. Preserved existing default and
+  shared-budget tests. There are 11 cases in the two new test groups and a net
+  increase of 10 because the prior negative-count case is incorporated.
+- Black, Ruff, strict mypy for source/tests/scripts, and `git diff --check`
+  pass. No pytest or live model was run. Handed off the full-suite command;
+  expected 337 passed and one skipped live check. Completion/commit await the
+  owner's test results.
+
+### 2026-10-11 — Block 3.5 failure-case review
+
+- Began from a clean working tree. The owner confirmed that unknown-tool
+  failures return to the model, failed attempts consume the four-attempt
+  budget, and a final answer after the fourth failure returns to the user.
+- Distinguished controlled failures from unexpected exceptions. The owner
+  chose stopping for unexpected errors; reviewed propagation and assertions
+  that no later model or tool calls occur.
+- Reviewed repeated-call exhaustion, unknown tools, invalid-argument recovery
+  and exhaustion, exception handling, and bounded model retries. Existing
+  deterministic tests cover these behaviors; added no duplicate tests.
+- Recorded the review in the Phase 3 workbook. No executable code changed,
+  pytest was not run, and the block remains open for any additional failure
+  scenarios the owner identifies.
+- When the owner asked for remaining gaps, found incomplete runtime validation
+  of the model-retry count. Fractional/non-finite budgets can never reach the
+  equality-to-zero exhaustion guard. Proposed matching the tool-limit type
+  contract; design and tests remain to be agreed before implementation.
+
+### 2026-10-11 — Push completed Block 3 work
+
+- Retried the authorized push; HTTPS credentials were unavailable and the
+  stored GitHub CLI token was invalid. SSH authentication also failed.
+- Started GitHub's browser sign-in flow, which the owner completed. Pushed
+  `feature/block-3-agent-loop` successfully with upstream tracking, including
+  completion commits for Blocks 3.2, 3.3, and 3.4. Updated the handoff to remove
+  the authentication blocker. No application code changed.
+
+### 2026-10-11 — Block 3.4 context budget and mandatory run logs
+
+- The owner proposed logs under `logs/` and deterministic context-field
+  selection by the harness. Accepted preserving complete evidence initially
+  after reviewing the loss from metadata-only results or file excerpts without
+  range-reading support. Accepted the proposed boundary/failure tests and
+  explicitly chose stopping on logging failure.
+- Added an adapter-owned exact JSON body guard with a positive configurable
+  `max_request_bytes`, defaulting to 65,536. Oversized requests terminate with
+  non-retryable `context_limit_reached` before network access. This is a byte
+  policy, not a token estimate or allocated-model-window guarantee.
+- Added required keyword-only harness `logs_dir` configuration and per-run
+  JSONL records for initial configuration, model attempts/responses, full tool
+  results, final outcomes, and interruption types. Exclusive opaque filenames,
+  JSON escaping, and the registry's resolved boundary protect log naming and
+  keep logs outside the inspected repository. Git ignores runtime `/logs/`.
+- Understood logging I/O failures produce safe `logging_failed` and stop
+  further calls. Original unexpected exceptions propagate even if interruption
+  logging fails. Prior records remain; failed files may be incomplete.
+- Existing tests use temporary log destinations. Added 33 deterministic cases
+  for byte boundaries, Unicode/escaping, full-request accounting, growth,
+  mandatory logging, retries, rejected proposals, errors, and containment.
+  Final suite: 327 passed, one skipped live check. Black, Ruff, and strict mypy
+  pass, including the example script. No live model was called.
+- Added `scripts/inspect_context_growth.py` and ran it: requests contained
+  2/4/6/8 messages and measured 1,642/1,978/2,302/2,749 encoded bytes. It writes
+  a full local example log under `logs/`. Recorded accepted contract/tradeoffs
+  in ADR-0001 and marked Block 3.4 complete.
+- The owner requested pushing code during this work. A push of completed
+  commits was rejected with invalid GitHub credentials; GitHub CLI also
+  confirmed the invalid stored token. Asked the owner to run
+  `gh auth login -h github.com` while local verification continued. Push remains
+  pending successful authentication.
+
+### 2026-10-11 — Block 3.3 bounded iterative investigation
+
+- The owner chose four tool attempts by default, counted failed and repeated
+  calls, and allowed a final answer after the last permitted observation.
+  Proposed tests for successful investigations below/at the limit, failures,
+  repetition, and exceeding four calls.
+- Replaced the harness's two fixed model stages with an explicit loop and
+  immutable chronological interaction snapshots. Added configurable
+  `max_tool_calls` after the existing retry setting, preserving its positional
+  meaning. Zero allows an answer-only run; invalid limits are rejected.
+- Checked text answers before the budget guard and guarded every registry
+  invocation. Failed and unknown-tool attempts consume the same budget as
+  successful attempts. Model retries neither consume tool attempts nor reset
+  the remaining retry budget. Unexpected defects still propagate.
+- Observed 20 expected failures and 15 passes with new contracts against the
+  old implementation. Added scripted tests and real harness/adapter/repository
+  integration cases for ordered histories, custom limits, failure recovery,
+  later errors, final-answer retries, fresh runs, and boundary containment.
+- Under the owner's session-level pytest authorization, final verification
+  reports 81 focused tests passed and 294 passed with one skipped opt-in live
+  check in the full suite. Black, Ruff, and strict mypy pass. No live model was
+  called. Marked Block 3.3 complete and advanced to Block 3.4 context design.
+
+### 2026-10-11 — Block 3.2 adapter context translation
+
+- Confirmed that earlier work was pushed to `docs/product-definition` but had
+  not reached the default branch. The owner merged pull request #1; fetched
+  and fast-forwarded local `main` to `334d923`, then created
+  `feature/block-3-agent-loop` for Phase 3 continuation.
+- The owner defined outcome preservation: send successful response data or a
+  failure code, retain parameters, and test success, invalid parameters,
+  controlled failures, and uncontrolled errors. Expanded the contract to retain
+  tool names, correlated IDs, safe failure messages, and message order.
+- Replaced the Ollama adapter's nonempty-context rejection with assistant
+  tool-call and tool-result translation. Result content is JSON:
+  `{"status": "success", "data": ...}` or
+  `{"status": "failure", "error": {"code": ..., "message": ...}}`.
+- Used the existing result dataclasses for serialization; search metadata and
+  empty results are retained. Repository text remains tool-message data, which
+  is a structural boundary check rather than proof of prompt-injection defense.
+- Added adapter tests for all three success result types, empty listings,
+  controlled failure translation, and transport failure with context. Added
+  deterministic harness/adapter/real-registry cases for success, generated and
+  provider IDs, missing files, empty/mistyped/extra arguments, and unexpected
+  tool exceptions without a follow-up model call.
+- Initially handed off pytest to the owner, with Black, Ruff, and strict mypy
+  passing. The owner then explicitly asked the collaborator to run both suites
+  this session: 57 focused tests passed and the full suite reported 270 passed
+  with one skipped opt-in live check. No live model was called.
+- Marked Block 3.2 complete, documented the adapter contract and cross-boundary
+  tests in the workbook, and advanced the canonical next action to Block 3.3
+  contract design. Prepared one focused completion commit after formatting and
+  lint verification.
 
 ### 2026-10-04 — Block 3.2 single-tool design and implementation
 
@@ -583,10 +808,9 @@ re-running the suite and reconsidering completion. Do not begin Block 3.3 yet.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Phase 2 is complete: the default suite
-> reports 242 passed and one skipped live test; the opt-in Ollama check passes.
-> Black, Ruff, and mypy pass. Begin Block 3.1 by defining the agent and assigning
-> responsibilities among the model, harness, registry, and tools.
-> Run Black and Ruff before commits. Keep using `PYTHONPATH=src` until the
-> macOS editable-install issue has a persistent fix, and update project status
-> when we finish.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 4.1's finding schema is designed:
+> claim, at least one evidence location, and possibly empty limitations.
+> No finding code or tests exist yet. Continue Block 4.2 in the Phase 4 workbook,
+> starting with single-line versus range evidence references. Review the contract
+> and tests, then implement the evidence/finding records. Keep actual inspection
+> validation open until Block 4.4. Verify the working tree before editing.

@@ -1,6 +1,6 @@
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -14,6 +14,7 @@ from .model import (
     ToolRequest,
 )
 from .tools.registry import ArgumentMetadata, OptionalArgumentMetadata, ToolMetadata
+from .tools.results import ToolFailure
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,7 @@ class OllamaConfig:
     model: str = "qwen2.5:7b"
     base_url: str = "http://127.0.0.1:11434"
     timeout_seconds: float = 60.0
+    max_request_bytes: int = 64 * 1024
 
     def __post_init__(self) -> None:
         if not self.model:
@@ -29,6 +31,8 @@ class OllamaConfig:
             raise ValueError("Ollama base URL must be nonempty")
         if self.timeout_seconds <= 0:
             raise ValueError("Ollama timeout must be positive")
+        if type(self.max_request_bytes) is not int or self.max_request_bytes <= 0:
+            raise ValueError("Maximum request bytes must be a positive integer")
         object.__setattr__(self, "base_url", self.base_url.rstrip("/"))
 
 
@@ -37,26 +41,23 @@ class OllamaModel:
     config: OllamaConfig = field(default_factory=OllamaConfig)
 
     def generate(self, request: ModelRequest) -> ModelResult:
-        if request.context:
-            return ModelFailure(
-                code="unsupported_request",
-                message=("The Ollama adapter does not yet support prior tool context."),
-                retryable=False,
-            )
-
         payload = {
             "model": self.config.model,
-            "messages": [
-                {"role": "system", "content": request.instructions},
-                {"role": "user", "content": request.question},
-            ],
+            "messages": _messages(request),
             "stream": False,
         }
         if request.tools:
             payload["tools"] = [_tool_schema(tool) for tool in request.tools]
+        request_bytes = json.dumps(payload).encode("utf-8")
+        if len(request_bytes) > self.config.max_request_bytes:
+            return ModelFailure(
+                code="context_limit_reached",
+                message="The encoded model request exceeds the byte limit.",
+                retryable=False,
+            )
         http_request = Request(
             f"{self.config.base_url}/api/chat",
-            data=json.dumps(payload).encode("utf-8"),
+            data=request_bytes,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
@@ -83,6 +84,44 @@ class OllamaModel:
                 message="Ollama returned a response that ArchAgent could not validate.",
                 retryable=True,
             )
+
+
+def _messages(request: ModelRequest) -> list[dict[str, object]]:
+    messages: list[dict[str, object]] = [
+        {"role": "system", "content": request.instructions},
+        {"role": "user", "content": request.question},
+    ]
+    for interaction in request.context:
+        tool_request = interaction.request
+        messages.append(
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tool_request.id,
+                        "function": {
+                            "name": tool_request.tool_name,
+                            "arguments": dict(tool_request.arguments),
+                        },
+                    }
+                ],
+            }
+        )
+        result = interaction.result.result
+        if isinstance(result, ToolFailure):
+            observation = {"status": "failure", "error": asdict(result)}
+        else:
+            observation = {"status": "success", "data": asdict(result)}
+        messages.append(
+            {
+                "role": "tool",
+                "tool_name": interaction.result.tool_name,
+                "tool_call_id": interaction.result.request_id,
+                "content": json.dumps(observation),
+            }
+        )
+    return messages
 
 
 def _translate_response(
