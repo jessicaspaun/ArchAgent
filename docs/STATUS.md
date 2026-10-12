@@ -8,7 +8,7 @@ Last updated: 2026-10-12
 - **Block:** 4.2 — Provenance; evidence-reference design next
 - **State:** Block 4.1's schema-design exercise is complete: a nonblank claim, at least one supporting location, and limitations that may be empty. Reviewed valid/invalid inputs, multiple locations, explicit gaps, and immutability, following existing frozen results. The evidence entry's structure is the Block 4.2 exercise; executable finding work awaits that contract. No code/tests or agent evaluations were added/run. The last suite remains owner-reported 337 passed and one skipped live check.
 - **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
-- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Blocks 3.5 and 3.6 are committed locally as `31a2908` and `f9b2e7f`; neither has been pushed. Block 4.1 design documentation is completed locally; its completion commit has not been pushed.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Completed work through Block 4.1 (`db3397a`), including Blocks 3.5 and 3.6 (`31a2908`, `f9b2e7f`), is pushed to GitHub. [Pull request #2](https://github.com/jessicaspaun/ArchAgent/pull/2) is open into `main` for the bounded loop, tool context, request-size limits, run logs, failure coverage, and learning documentation. It has not been merged.
 
 ## Next action
 
@@ -34,6 +34,18 @@ Do not run pytest without owner request.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-12 — Branch push and pull request #2
+
+- The owner requested pushing to GitHub and opening a PR. Confirmed a clean
+  working tree, fetched the remote, and found no existing open PR for the
+  branch. Pushed the three local completion commits through `db3397a`.
+- Opened [PR #2](https://github.com/jessicaspaun/ArchAgent/pull/2) into `main`,
+  describing the complete branch scope, required `logs_dir` caller change,
+  byte-limit tradeoff, owner-reported 337 passed/one skipped result, and
+  formatting/lint/type verification. The PR remains open; no merge performed.
+- Updated the handoff to record publication. No application code changed,
+  pytest was not rerun, and no model calls or agent evaluations were made.
 
 ### 2026-10-12 — Block 4.1 schema design completion
 
