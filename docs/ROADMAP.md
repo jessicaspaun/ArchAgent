@@ -54,8 +54,8 @@ Exit condition: a bounded, observable loop can investigate through tools and fai
 
 ## Phase 4 — Evidence-based architecture analysis (~5 hours)
 
-- [ ] **4.1 Architectural finding** — design the finding schema.
-- [ ] **4.2 Provenance** — define how findings reference repository evidence.
+- [x] **4.1 Architectural finding** — design the finding schema.
+- [~] **4.2 Provenance** — define how findings reference repository evidence.
 - [ ] **4.3 Architect behavior** — define the architect agent's responsibilities and boundaries.
 - [ ] **4.4 Evidence validation** — design how the system verifies that cited evidence was actually inspected.
 - [ ] **4.5 Demo repositories** — build small, deliberately flawed applications as fixtures for tests and evaluations.

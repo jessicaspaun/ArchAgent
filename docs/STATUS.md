@@ -5,17 +5,18 @@ Last updated: 2026-10-12
 ## Current position
 
 - **Phase:** 4 — Evidence-based architecture analysis
-- **Block:** 4.1 — Architectural finding; owner design proposal next
-- **State:** Phase 3 is complete. The owner distinguished code tests from agent evaluations and chose manual checklist review requiring a correct explanation plus supporting inspected code. The protocol is documented; no agent evaluation has been run or quality measured. The last code suite remains owner-reported 337 passed and one skipped live check; Black, Ruff, and strict mypy pass. Phase 4 begins with the owner's finding-design proposal, contract, and test strategy.
+- **Block:** 4.2 — Provenance; evidence-reference design next
+- **State:** Block 4.1's schema-design exercise is complete: a nonblank claim, at least one supporting location, and limitations that may be empty. Reviewed valid/invalid inputs, multiple locations, explicit gaps, and immutability, following existing frozen results. The evidence entry's structure is the Block 4.2 exercise; executable finding work awaits that contract. No code/tests or agent evaluations were added/run. The last suite remains owner-reported 337 passed and one skipped live check.
 - **Application code:** The four-attempt harness retains full ordered observations and requires a trusted `logs_dir` for a separate JSONL log per run. Logging failures stop the run; unexpected exceptions retain their original behavior. The repository registry retains its resolved boundary to prevent logs inside the target. `OllamaModel` rejects encoded requests above configurable `max_request_bytes` (64 KiB default) before network access. This byte budget does not guarantee token-window fit.
-- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Block 3.5 is committed locally as `31a2908` and has not been pushed. Block 3.6 documentation is completed locally; its completion commit has not been pushed.
+- **Repository state:** `feature/block-3-agent-loop` tracks `origin/feature/block-3-agent-loop`. Blocks 3.2, 3.3, and 3.4 are committed as `6229120`, `cf43551`, and `f2c7a7e` and pushed to GitHub. Blocks 3.5 and 3.6 are committed locally as `31a2908` and `f9b2e7f`; neither has been pushed. Block 4.1 design documentation is completed locally; its completion commit has not been pushed.
 
 ## Next action
 
-Begin Block 4.1 in `docs/PHASE_4_WORKBOOK.md`. Ask the owner to propose the
-information an architectural finding should contain, then discuss its contract
-and what tests would convince them it works. Review conceptual issues before
-implementation. Keep later provenance/evidence-validation mechanisms open.
+Continue Block 4.2 in `docs/PHASE_4_WORKBOOK.md`. Begin with the owner's choice
+of a single line versus an inclusive start/end range for evidence references.
+Review path/range representation, contract, and verification strategy, then
+implement the agreed evidence/finding records through a reviewable checkpoint.
+Keep actual inspection-validation mechanisms open until Block 4.4.
 Do not run pytest without owner request.
 
 ## Current constraints
@@ -24,7 +25,7 @@ Do not run pytest without owner request.
 - Begin with the three V0.1 repository tools only: `list_files`, `read_file`, and `search_code`.
 - Treat repository paths and contents as untrusted input and keep all access read-only and repository-confined.
 - Keep the existing low-level model adapter; do not introduce an agent framework or retrieval system.
-- The finding schema is now the Block 4.1 design exercise; the owner proposes it first.
+- Preserve the agreed claim/evidence/limitations finding shape; evidence-reference structure is the Block 4.2 design exercise.
 - Keep the evidence-validation mechanism unresolved until Block 4.4.
 
 ## Open questions
@@ -33,6 +34,36 @@ Do not run pytest without owner request.
   `PYTHONPATH=src` workaround for macOS hidden editable-install `.pth` files?
 
 ## Session log
+
+### 2026-10-12 — Block 4.1 schema design completion
+
+- The owner accepted requiring at least one supporting location and allowing
+  no limitations when there are no known gaps. Documented the outer finding
+  shape and discussed verification cases, following immutable result records.
+- Marked the schema-design exercise complete. Finding implementation awaits
+  an agreed evidence-reference contract in Block 4.2. The next choice is a
+  single line versus an inclusive range; actual inspection validation stays
+  in Block 4.4.
+- Documentation only. Reran Black, Ruff, and `git diff --check` before the
+  focused completion commit; no pytest, new tests, or live model calls.
+
+### 2026-10-12 — Block 4.1 conceptual finding contract
+
+- Explained why not identifying a writer does not establish its absence.
+  The owner accepted a clear claim, supporting code locations, and explicit
+  evidence gaps as the conceptual finding contract.
+- Distinguished validating representation from proving factual support and
+  actual inspection. Concrete schema rules and tests are next; later evidence
+  validation remains open. Documentation only; no code, tests, or model calls.
+
+### 2026-10-12 — Block 4.1 initial finding proposal
+
+- The owner proposed supporting files, line numbers, and locations where data
+  is read elsewhere. Reviewed the proposal as evidence locations and component
+  relationships; suggested the finding also needs its claim.
+- Required content and incomplete-evidence behavior are the next contract
+  discussion. No schema, provenance representation, or validation mechanism
+  is selected. Updated documentation only; no code, tests, or model calls.
 
 ### 2026-10-12 — Block 3.6 completion and Phase 4 handoff
 
@@ -765,9 +796,9 @@ Do not run pytest without owner request.
 
 If useful, begin a future session with:
 
-> Read `AGENTS.md` and `docs/STATUS.md`. Phase 3 is complete on
-> `feature/block-3-agent-loop`; the owner reports 337 passed and one skipped
-> live check. Manual evaluation criteria are documented, but no agent evaluation
-> has been run. Begin Block 4.1 in the Phase 4 workbook by asking for the owner's
-> finding-design proposal, contract, and test strategy. Keep evidence-validation
-> mechanisms open until Block 4.4. Verify the working tree before editing.
+> Read `AGENTS.md` and `docs/STATUS.md`. Block 4.1's finding schema is designed:
+> claim, at least one evidence location, and possibly empty limitations.
+> No finding code or tests exist yet. Continue Block 4.2 in the Phase 4 workbook,
+> starting with single-line versus range evidence references. Review the contract
+> and tests, then implement the evidence/finding records. Keep actual inspection
+> validation open until Block 4.4. Verify the working tree before editing.
